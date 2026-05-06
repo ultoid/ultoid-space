@@ -47,6 +47,6 @@ ultoid_translate/
 ├── outputs/             # Folder hasil terjemahan (MD, HTML, DOCX, TXT)
 ├── app.py               # Backend utama Flask
 ├── run.bat              # Script eksekusi satu klik
-├── API_key.txt          # File rahasia API Key (Jangan di-upload ke GitHub!)
+├── API_key.txt          # API Key (RAHASIA TOP SECRET!)
 ├── .gitignore           # Daftar file/folder yang diabaikan oleh Git
 └── README.md            # Dokumentasi proyek
