@@ -1,0 +1,14 @@
+# Jangan upload folder mesin Python portabel (ukurannya terlalu besar)
+python-3.13.13-embed-amd64/
+
+# Jangan upload API Key pribadi!
+API_key.txt
+
+# Jangan upload hasil kerja atau file sampah
+uploads/
+outputs/
+__pycache__/
+
+# Jika ada folder environment lain
+venv/
+.env
