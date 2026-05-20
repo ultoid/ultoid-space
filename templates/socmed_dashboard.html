@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Report · Ultoid Space</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    
+    <style>
+        /* ─── JEMBATAN VARIABEL KHUSUS PLATFORM ─── */
+        :root {
+            /* Warna khusus masing-masing sosmed dipertahankan untuk Chart & Aksen */
+            --ig: #f43f5e;
+            --ig-2: #fb923c;
+            --tt: #22d3ee;
+            --tt-2: #818cf8;
+            --fb: #3b82f6;
+            --fb-2: #60a5fa;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background orbs */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(244,63,94,0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 700px;
+            height: 700px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Pill selects */
+        .pill-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 6px 12px;
+        }
+        .pill-wrap select {
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        .pill-wrap select option {
+            background: #0d1117;
+            color: var(--text-primary);
+        }
+
+        /* Toggle switch */
+        .toggle-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        .switch {
+            position: relative;
+            width: 34px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        .switch input { display: none; }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 100px;
+            transition: .3s;
+        }
+        .slider:before {
+            content: '';
+            position: absolute;
+            width: 12px; height: 12px;
+            left: 3px; top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: .3s;
+        }
+        input:checked + .slider { background: rgba(255,255,255,0.25); }
+        input:checked + .slider:before { transform: translateX(16px); }
+        #toggleOrientation:checked + .slider { background: rgba(59,130,246,0.5); }
+        #toggleDataLabels:checked + .slider { background: rgba(244,63,94,0.5); }
+
+        /* Platform toggle buttons */
+        .view-toggle {
+            display: flex;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: 9px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .view-btn {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 5px 14px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .view-btn.active {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+        }
+
+        /* Platform accent lines */
+        .accent-ig { background: linear-gradient(90deg, var(--ig), var(--ig-2)); }
+        .accent-tt { background: linear-gradient(90deg, var(--tt), var(--tt-2)); }
+        .accent-fb { background: linear-gradient(90deg, var(--fb), var(--fb-2)); }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+        /* Loading */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { 
+            width: 32px; height: 32px;
+            border: 2px solid rgba(255,255,255,0.08);
+            border-top-color: var(--ig);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+
+        /* Tooltip */
+        #avatarTooltip {
+            pointer-events: none;
+            position: fixed;
+            z-index: 999;
+            background: rgba(13,17,23,0.95);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(16px);
+            padding: 8px 14px;
+            border-radius: 10px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            transform: translate(-50%, -110%);
+        }
+
+        /* Fade in animation */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.5s ease both; }
+        .fade-up-1 { animation-delay: 0.05s; }
+        .fade-up-2 { animation-delay: 0.15s; }
+        .fade-up-3 { animation-delay: 0.25s; }
+
+        /* Status dot */
+        .dot-live {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 6px #22c55e;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        main { position: relative; z-index: 1; }
+        nav { position: relative; z-index: 10; }
+    </style>
+</head>
+<body>
+
+    <nav class="u-glass sticky top-0 z-50 px-5 py-3" style="border-radius:0; border-top:none; border-left:none; border-right:none; background: rgba(7,9,15,0.7);">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <a href="/space" title="Home" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-base">🏠</a>
+                <div class="w-px h-5 bg-white/10"></div>
+                <span class="text-sm font-semibold text-white/80 tracking-tight">Social Media Report</span>
+                <div class="flex items-center gap-1.5 ml-1">
+                    <div class="dot-live"></div>
+                    <span class="text-[10px] font-mono text-green-400/80 uppercase tracking-widest">Live</span>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
+
+                <div class="pill-wrap">
+                    <span style="font-size:13px">📅</span>
+                    <select id="filterYear" onchange="updateMonthDropdown(); applyDualTimeFilter();">
+                    </select>
+                </div>
+
+                <div class="pill-wrap">
+                    <span style="font-size:13px">🗓</span>
+                    <select id="filterMonth" onchange="applyDualTimeFilter()">
+                    </select>
+                </div>
+
+                <label class="toggle-wrap">
+                    <span class="switch">
+                        <input type="checkbox" id="toggleOrientation" onchange="toggleOrientationMode()">
+                        <span class="slider"></span>
+                    </span>
+                    <span style="font-size:11px; font-weight:600; color: var(--text-muted); letter-spacing:0.04em; white-space:nowrap;">HORIZONTAL</span>
+                </label>
+
+                <label class="toggle-wrap">
+                    <span class="switch">
+                        <input type="checkbox" id="toggleDataLabels" onchange="toggleLabels()">
+                        <span class="slider"></span>
+                    </span>
+                    <span style="font-size:11px; font-weight:600; color: var(--text-muted); letter-spacing:0.04em; white-space:nowrap;">LABELS</span>
+                </label>
+
+            </div>
+        </div>
+    </nav>
+
+    <div id="avatarTooltip"></div>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-5">
+
+        <div id="loadingState" class="flex flex-col items-center justify-center py-24 gap-4">
+            <div class="spinner"></div>
+            <p style="font-size:11px; font-weight:600; letter-spacing:0.12em; color:var(--text-muted); text-transform:uppercase;">Memuat data…</p>
+        </div>
+
+        <div id="chartContainer" class="hidden flex flex-col gap-5">
+
+            <div class="u-glass fade-up fade-up-1 overflow-hidden">
+                <div class="h-0.5 w-full accent-ig opacity-60"></div>
+                <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <img src="https://raw.githubusercontent.com/gauravghongde/social-icons/master/SVG/Color/Instagram.svg" class="w-7 h-7" alt="Instagram">
+                        <div>
+                            <h2 style="font-size:15px; font-weight:700; color:var(--text-primary);">Instagram</h2>
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:1px;" id="igSubtitle">Followers & Posts</p>
+                        </div>
+                        <span style="font-size:10px; font-family:'DM Mono',monospace; color:var(--text-dim); margin-left:4px;">
+                            ↻ <span id="igLastUpdate" style="color:rgba(244,63,94,0.6)">—</span>
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="view-toggle">
+                            <button class="view-btn active" id="btn-ig-followers" onclick="switchView('ig','followers')">Followers</button>
+                            <button class="view-btn" id="btn-ig-posts" onclick="switchView('ig','posts')">Posts</button>
+                        </div>
+                        <a href="/ig-scraper" class="u-btn hover:bg-white/10 text-xs px-3 py-1.5" style="border: 1px solid var(--glass-border);">
+                            Buka ↗
+                        </a>
+                    </div>
+                </div>
+                <div id="igWrapper" class="px-4 pb-5 transition-all duration-500" style="height:420px; position:relative;">
+                    <canvas id="igChart"></canvas>
+                </div>
+            </div>
+
+            <div class="u-glass fade-up fade-up-2 overflow-hidden">
+                <div class="h-0.5 w-full accent-tt opacity-60"></div>
+                <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <img src="https://raw.githubusercontent.com/gauravghongde/social-icons/master/SVG/Color/Tik%20Tok.svg" class="w-7 h-7" alt="TikTok">
+                        <div>
+                            <h2 style="font-size:15px; font-weight:700; color:var(--text-primary);">TikTok</h2>
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:1px;" id="ttSubtitle">Followers & Posts</p>
+                        </div>
+                        <span style="font-size:10px; font-family:'DM Mono',monospace; color:var(--text-dim); margin-left:4px;">
+                            ↻ <span id="ttLastUpdate" style="color:rgba(34,211,238,0.6)">—</span>
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="view-toggle">
+                            <button class="view-btn active" id="btn-tt-followers" onclick="switchView('tt','followers')">Followers</button>
+                            <button class="view-btn" id="btn-tt-posts" onclick="switchView('tt','posts')">Posts</button>
+                        </div>
+                        <a href="/tt-scraper" class="u-btn hover:bg-white/10 text-xs px-3 py-1.5" style="border: 1px solid var(--glass-border);">
+                            Buka ↗
+                        </a>
+                    </div>
+                </div>
+                <div id="ttWrapper" class="px-4 pb-5 transition-all duration-500" style="height:420px; position:relative;">
+                    <canvas id="ttChart"></canvas>
+                </div>
+            </div>
+
+            <div class="u-glass fade-up fade-up-3 overflow-hidden">
+                <div class="h-0.5 w-full accent-fb opacity-60"></div>
+                <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <img src="https://raw.githubusercontent.com/gauravghongde/social-icons/master/SVG/Color/Facebook.svg" class="w-7 h-7" alt="Facebook">
+                        <div>
+                            <h2 style="font-size:15px; font-weight:700; color:var(--text-primary);">Facebook</h2>
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:1px;" id="fbSubtitle">Total Posts</p>
+                        </div>
+                        <span style="font-size:10px; font-family:'DM Mono',monospace; color:var(--text-dim); margin-left:4px;">
+                            ↻ <span id="fbLastUpdate" style="color:rgba(59,130,246,0.6)">—</span>
+                        </span>
+                    </div>
+                    <a href="/fb-scraper" class="u-btn hover:bg-white/10 text-xs px-3 py-1.5" style="border: 1px solid var(--glass-border);">
+                        Buka ↗
+                    </a>
+                </div>
+                <div id="fbWrapper" class="px-4 pb-5 transition-all duration-500" style="height:420px; position:relative;">
+                    <canvas id="fbChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        Chart.register(ChartDataLabels);
+
+        let globalIsHorizontal = false;
+        let apiData = {};
+        let charts = {};
+        let showDataLabels = false;
+
+        // ─── Avatar Plugin ───
+        const avatarPlugin = {
+            id: 'avatarPlugin',
+            afterDraw: (chart) => {
+                try {
+                    const ctx = chart.ctx;
+                    const xAxis = chart.scales.x;
+                    const yAxis = chart.scales.y;
+                    if (!chart.canvas) return;
+                    const platformStr = chart.canvas.id.replace('Chart', '');
+                    const pData = apiData[platformStr === 'ig' ? 'instagram' : (platformStr === 'tt' ? 'tiktok' : 'facebook')];
+                    if (!pData || !pData.picElements || pData.picElements.length === 0) return;
+                    const ticks = globalIsHorizontal ? yAxis.ticks : xAxis.ticks;
+                    if (!ticks) return;
+                    ticks.forEach((tick, index) => {
+                        let x, y;
+                        if (globalIsHorizontal) {
+                            x = chart.chartArea.left - 20;
+                            y = yAxis.getPixelForTick(index);
+                        } else {
+                            x = xAxis.getPixelForTick(index);
+                            y = chart.chartArea.bottom + 16;
+                        }
+                        if (index < pData.picElements.length) {
+                            const img = pData.picElements[index];
+                            if (img && img.complete && img.naturalWidth > 0) {
+                                ctx.save();
+                                ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.closePath();
+                                ctx.clip();
+                                ctx.drawImage(img, x - 11, y - 11, 22, 22);
+                                ctx.restore();
+                                ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2);
+                                ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+                            }
+                        }
+                    });
+                } catch (err) { console.warn("Avatar draw error:", err); }
+            }
+        };
+        Chart.register(avatarPlugin);
+
+        Chart.defaults.color = '#475569';
+        Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+        function getCommonOptions() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 700, easing: 'easeInOutQuart' },
+                layout: {
+                    padding: {
+                        top: globalIsHorizontal ? 16 : 44,
+                        bottom: globalIsHorizontal ? 16 : 32,
+                        left: globalIsHorizontal ? 40 : 8,
+                        right: globalIsHorizontal ? 180 : 8
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        display: function(context) { return showDataLabels; },
+                        labels: {
+                            nameLabel: {
+                                anchor: 'start', align: 'end', offset: 8,
+                                rotation: function(context) { return globalIsHorizontal ? 0 : -90; },
+                                color: '#cbd5e1',
+                                textStrokeColor: '#07090f', textStrokeWidth: 3,
+                                font: { weight: '600', size: 10, family: "'DM Sans', sans-serif" },
+                                formatter: function(value, context) {
+                                    if (value === 0) return '';
+                                    const maxVal = Math.max(...context.dataset.data);
+                                    if (value < maxVal * 0.50) return '';
+                                    const platformStr = context.chart.canvas.id.replace('Chart', '');
+                                    const pData = apiData[platformStr === 'ig' ? 'instagram' : (platformStr === 'tt' ? 'tiktok' : 'facebook')];
+                                    return pData.names[context.dataIndex];
+                                }
+                            },
+                            valueLabel: {
+                                anchor: 'end', align: 'end', offset: 5,
+                                rotation: function(context) { return globalIsHorizontal ? 0 : -90; },
+                                color: '#f1f5f9',
+                                textStrokeColor: '#07090f', textStrokeWidth: 3,
+                                font: { weight: '700', size: 10, family: "'DM Mono', monospace" },
+                                formatter: function(value, context) {
+                                    if (value === 0) return '';
+                                    const maxVal = Math.max(...context.dataset.data);
+                                    const numStr = value.toLocaleString('id-ID');
+                                    if (value < maxVal * 0.50) {
+                                        const platformStr = context.chart.canvas.id.replace('Chart', '');
+                                        const pData = apiData[platformStr === 'ig' ? 'instagram' : (platformStr === 'tt' ? 'tiktok' : 'facebook')];
+                                        return `${pData.names[context.dataIndex]}  ${numStr}`;
+                                    }
+                                    return numStr;
+                                }
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(7,9,15,0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        borderColor: 'rgba(255,255,255,0.08)',
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 10,
+                        displayColors: false,
+                        titleFont: { family: "'DM Sans', sans-serif", weight: '600', size: 12 },
+                        bodyFont: { family: "'DM Mono', monospace", size: 11 },
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.raw.toLocaleString('id-ID');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        display: !globalIsHorizontal,
+                        grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+                        border: { display: false },
+                        ticks: {
+                            font: { family: "'DM Mono',monospace", size: 10 },
+                            color: '#334155',
+                            callback: function(value) {
+                                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+                                return value;
+                            }
+                        }
+                    },
+                    x: {
+                        beginAtZero: true,
+                        display: globalIsHorizontal,
+                        grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+                        border: { display: false },
+                        ticks: {
+                            font: { family: "'DM Mono',monospace", size: 10 },
+                            color: '#334155',
+                            callback: function(value) {
+                                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+                                return value;
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', loadChartData);
+
+        function toggleLabels() {
+            showDataLabels = document.getElementById('toggleDataLabels').checked;
+            Object.values(charts).forEach(chart => chart.update());
+        }
+
+        function toggleOrientationMode() {
+            globalIsHorizontal = document.getElementById('toggleOrientation').checked;
+            Object.keys(charts).forEach(key => {
+                let chart = charts[key];
+                let pData = apiData[key === 'ig' ? 'instagram' : (key === 'tt' ? 'tiktok' : 'facebook')];
+                let dataLen = pData.labels ? pData.labels.length : 0;
+                chart.options.indexAxis = globalIsHorizontal ? 'y' : 'x';
+                let newOpts = getCommonOptions();
+                chart.options.layout.padding = newOpts.layout.padding;
+                chart.options.scales = newOpts.scales;
+                const wrapper = document.getElementById(key + 'Wrapper');
+                wrapper.style.height = globalIsHorizontal ? Math.max(420, dataLen * 40) + 'px' : '420px';
+                chart.update();
+            });
+        }
+
+        // ─── Time Filter ───
+        const startYear = 2026;
+        const monthNames = [
+            { key: 'jan', label: 'Januari' }, { key: 'feb', label: 'Februari' },
+            { key: 'mar', label: 'Maret' }, { key: 'apr', label: 'April' },
+            { key: 'mei', label: 'Mei' }, { key: 'jun', label: 'Juni' },
+            { key: 'jul', label: 'Juli' }, { key: 'agu', label: 'Agustus' },
+            { key: 'sep', label: 'September' }, { key: 'okt', label: 'Oktober' },
+            { key: 'nov', label: 'November' }, { key: 'des', label: 'Desember' }
+        ];
+
+        function initTimeFilterDropdown() {
+            const yearSelect = document.getElementById('filterYear');
+            const monthSelect = document.getElementById('filterMonth');
+            if (!yearSelect || !monthSelect) return;
+            const currentSelectedYear = yearSelect.value || 'live';
+            const currentSelectedMonth = monthSelect.value || 'all';
+            yearSelect.innerHTML = '';
+            const liveOpt = document.createElement('option');
+            liveOpt.value = 'live';
+            liveOpt.innerText = '🟢 Semua Tahun';
+            yearSelect.appendChild(liveOpt);
+            let detectedYears = new Set([2026]);
+            ['instagram', 'tiktok', 'facebook'].forEach(plat => {
+                if (apiData && apiData[plat] && apiData[plat].accounts_data) {
+                    apiData[plat].accounts_data.forEach(acc => {
+                        const dataObj = acc.profile ? acc.profile : acc;
+                        Object.keys(dataObj).forEach(key => {
+                            if (key.startsWith('posts_') && !key.includes('base')) {
+                                const yNum = parseInt(key.replace('posts_', ''));
+                                if (!isNaN(yNum)) detectedYears.add(yNum);
+                            }
+                        });
+                    });
+                }
+            });
+            Array.from(detectedYears).sort((a, b) => a - b).forEach(year => {
+                const opt = document.createElement('option');
+                opt.value = `${year}`;
+                opt.innerText = `Tahun ${year}`;
+                yearSelect.appendChild(opt);
+            });
+            if (Array.from(yearSelect.options).some(o => o.value === currentSelectedYear)) yearSelect.value = currentSelectedYear;
+            else yearSelect.value = 'live';
+            monthSelect.innerHTML = '<option value="all">Setahun Penuh</option>';
+            monthNames.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.key;
+                opt.innerText = m.label;
+                monthSelect.appendChild(opt);
+            });
+            if (Array.from(monthSelect.options).some(o => o.value === currentSelectedMonth)) monthSelect.value = currentSelectedMonth;
+            else monthSelect.value = 'all';
+            updateMonthDropdown();
+        }
+
+        function updateMonthDropdown() {
+            const yearSelect = document.getElementById('filterYear');
+            const monthSelect = document.getElementById('filterMonth');
+            if (yearSelect.value === 'live') {
+                monthSelect.disabled = true;
+                monthSelect.style.opacity = '0.35';
+                monthSelect.value = 'all';
+            } else {
+                monthSelect.disabled = false;
+                monthSelect.style.opacity = '1';
+            }
+        }
+
+        function applyDualTimeFilter() {
+            const yVal = document.getElementById('filterYear').value;
+            const mVal = document.getElementById('filterMonth').value;
+            let filterText = 'Live Data';
+            if (yVal !== 'live') {
+                if (mVal === 'all') filterText = `Tahun ${yVal}`;
+                else {
+                    const namaBulan = document.getElementById('filterMonth').options[document.getElementById('filterMonth').selectedIndex].text;
+                    filterText = `${namaBulan} ${yVal}`;
+                }
+            }
+            document.getElementById('igSubtitle').innerText = `Followers & Posts · ${filterText}`;
+            document.getElementById('ttSubtitle').innerText = `Followers & Posts · ${filterText}`;
+            document.getElementById('fbSubtitle').innerText = `Total Posts · ${filterText}`;
+            ['ig', 'tt', 'fb'].forEach(platform => {
+                let pData = apiData[platform === 'ig' ? 'instagram' : (platform === 'tt' ? 'tiktok' : 'facebook')];
+                let filteredFollowers = [], filteredPosts = [];
+                if (!pData.accounts_data) return;
+                pData.accounts_data.forEach(prof => {
+                    if (yVal === 'live') {
+                        filteredFollowers.push(prof.followers || 0);
+                        filteredPosts.push(prof.total_posts || 0);
+                    } else if (mVal !== 'all') {
+                        filteredFollowers.push((prof[`followers_${yVal}`] && prof[`followers_${yVal}`][mVal]) ? prof[`followers_${yVal}`][mVal] : 0);
+                        filteredPosts.push((prof[`posts_${yVal}`] && prof[`posts_${yVal}`][mVal]) ? prof[`posts_${yVal}`][mVal] : 0);
+                    } else {
+                        let sumF = 0, sumP = 0;
+                        if (prof[`followers_${yVal}`]) Object.values(prof[`followers_${yVal}`]).forEach(v => sumF += v);
+                        if (prof[`posts_${yVal}`]) Object.values(prof[`posts_${yVal}`]).forEach(v => sumP += v);
+                        filteredFollowers.push(sumF);
+                        filteredPosts.push(sumP);
+                    }
+                });
+                pData.filtered_followers = filteredFollowers;
+                pData.filtered_posts = filteredPosts;
+                if (charts[platform]) {
+                    let viewType = platform === 'fb' ? 'posts' : (document.getElementById(`btn-${platform}-followers`).classList.contains('active') ? 'followers' : 'posts');
+                    charts[platform].data.datasets[0].data = viewType === 'followers' ? filteredFollowers : filteredPosts;
+                    charts[platform].update();
+                }
+            });
+        }
+
+        // ─── Preload Avatars ───
+        async function preloadImages(platformData) {
+            if (!platformData.pics || !platformData.labels) return;
+            platformData.picElements = [];
+            const promises = platformData.pics.map((url, index) => {
+                return new Promise(resolve => {
+                    const img = new Image();
+                    let safeUrl = url;
+                    const dealerName = platformData.names[index] || (platformData.labels[index] ? platformData.labels[index].replace('@', '') : 'User');
+                    if (safeUrl && safeUrl.length > 5 && (safeUrl.includes('cdninstagram.com') || safeUrl.includes('fbcdn.net') || safeUrl.includes('tiktokcdn'))) {
+                        safeUrl = `https://wsrv.nl/?url=${encodeURIComponent(safeUrl)}&w=48&h=48&fit=cover&mask=circle`;
+                        img.crossOrigin = "Anonymous";
+                    } else {
+                        safeUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(dealerName)}&background=random&color=fff&rounded=true&bold=true`;
+                    }
+                    img.onload = () => resolve(img);
+                    img.onerror = () => {
+                        img.removeAttribute("crossOrigin");
+                        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(dealerName)}&background=random&color=fff&rounded=true&bold=true`;
+                        setTimeout(() => resolve(img), 300);
+                    };
+                    img.src = safeUrl;
+                    platformData.picElements.push(img);
+                });
+            });
+            await Promise.all(promises);
+        }
+
+        // ─── Main Load ───
+        async function loadChartData() {
+            try {
+                const res = await fetch('/api/socmed/stats');
+                apiData = await res.json();
+                initTimeFilterDropdown();
+                document.getElementById('igLastUpdate').innerText = apiData.instagram.last_updated;
+                document.getElementById('ttLastUpdate').innerText = apiData.tiktok.last_updated;
+                document.getElementById('fbLastUpdate').innerText = apiData.facebook.last_updated;
+                await preloadImages(apiData.instagram);
+                await preloadImages(apiData.tiktok);
+                await preloadImages(apiData.facebook);
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('chartContainer').classList.remove('hidden');
+                applyDualTimeFilter();
+                initCharts();
+                attachHoverEvent('igChart', apiData.instagram);
+                attachHoverEvent('ttChart', apiData.tiktok);
+                attachHoverEvent('fbChart', apiData.facebook);
+                toggleOrientationMode();
+            } catch (e) {
+                document.getElementById('loadingState').innerHTML = `
+                    <div style="font-size:13px; color:#ef4444; font-weight:600;">Gagal memuat data dari server.</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Pastikan server berjalan dan Anda sudah login.</div>
+                `;
+            }
+        }
+
+        function initCharts() {
+            // IG
+            const ctxIg = document.getElementById('igChart').getContext('2d');
+            charts.ig = new Chart(ctxIg, {
+                type: 'bar',
+                data: {
+                    labels: apiData.instagram.labels,
+                    datasets: [{
+                        label: 'Followers',
+                        data: apiData.instagram.filtered_followers,
+                        backgroundColor: 'rgba(244,63,94,0.75)',
+                        hoverBackgroundColor: 'rgba(244,63,94,0.95)',
+                        borderRadius: 5,
+                        borderSkipped: false,
+                        barPercentage: 0.55,
+                        categoryPercentage: 0.85
+                    }]
+                },
+                options: getCommonOptions()
+            });
+
+            // TT
+            const ctxTt = document.getElementById('ttChart').getContext('2d');
+            charts.tt = new Chart(ctxTt, {
+                type: 'bar',
+                data: {
+                    labels: apiData.tiktok.labels,
+                    datasets: [{
+                        label: 'Followers',
+                        data: apiData.tiktok.filtered_followers,
+                        backgroundColor: 'rgba(34,211,238,0.75)',
+                        hoverBackgroundColor: 'rgba(34,211,238,0.95)',
+                        borderRadius: 5,
+                        borderSkipped: false,
+                        barPercentage: 0.55,
+                        categoryPercentage: 0.85
+                    }]
+                },
+                options: getCommonOptions()
+            });
+
+            // FB
+            const ctxFb = document.getElementById('fbChart').getContext('2d');
+            charts.fb = new Chart(ctxFb, {
+                type: 'bar',
+                data: {
+                    labels: apiData.facebook.labels,
+                    datasets: [{
+                        label: 'Total Posts',
+                        data: apiData.facebook.filtered_posts,
+                        backgroundColor: 'rgba(59,130,246,0.75)',
+                        hoverBackgroundColor: 'rgba(59,130,246,0.95)',
+                        borderRadius: 5,
+                        borderSkipped: false,
+                        barPercentage: 0.55,
+                        categoryPercentage: 0.85
+                    }]
+                },
+                options: getCommonOptions()
+            });
+        }
+
+        function switchView(platform, viewType) {
+            if (platform === 'fb') return;
+            document.getElementById(`btn-${platform}-followers`).classList.remove('active');
+            document.getElementById(`btn-${platform}-posts`).classList.remove('active');
+            document.getElementById(`btn-${platform}-${viewType}`).classList.add('active');
+            const colorMap = {
+                ig: { followers: 'rgba(244,63,94,0.75)', posts: 'rgba(251,146,60,0.75)' },
+                tt: { followers: 'rgba(34,211,238,0.75)', posts: 'rgba(129,140,248,0.75)' }
+            };
+            const hoverMap = {
+                ig: { followers: 'rgba(244,63,94,0.95)', posts: 'rgba(251,146,60,0.95)' },
+                tt: { followers: 'rgba(34,211,238,0.95)', posts: 'rgba(129,140,248,0.95)' }
+            };
+            let chartInstance = charts[platform];
+            let dataSource = apiData[platform === 'ig' ? 'instagram' : 'tiktok'];
+            chartInstance.data.datasets[0].label = viewType === 'followers' ? 'Followers' : 'Total Posts';
+            chartInstance.data.datasets[0].data = viewType === 'followers' ? dataSource.filtered_followers : dataSource.filtered_posts;
+            chartInstance.data.datasets[0].backgroundColor = colorMap[platform][viewType];
+            chartInstance.data.datasets[0].hoverBackgroundColor = hoverMap[platform][viewType];
+            chartInstance.update();
+        }
+
+        // ─── Hover Tooltip ───
+        function attachHoverEvent(canvasId, platformData) {
+            const canvas = document.getElementById(canvasId);
+            const tooltip = document.getElementById('avatarTooltip');
+            const colorMap = { igChart: '#f43f5e', ttChart: '#22d3ee', fbChart: '#3b82f6' };
+            canvas.addEventListener('mousemove', (e) => {
+                const chart = charts[canvasId.replace('Chart', '')]; if (!chart) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                const xAxis = chart.scales.x, yAxis = chart.scales.y;
+                let hoveredIndex = -1;
+                if (globalIsHorizontal) {
+                    if (x <= chart.chartArea.left && x >= chart.chartArea.left - 40) {
+                        yAxis.ticks.forEach((tick, index) => { if (Math.abs(y - yAxis.getPixelForTick(index)) <= 15) hoveredIndex = index; });
+                    }
+                } else {
+                    if (y >= chart.chartArea.bottom && y <= chart.chartArea.bottom + 35) {
+                        xAxis.ticks.forEach((tick, index) => { if (Math.abs(x - xAxis.getPixelForTick(index)) <= 15) hoveredIndex = index; });
+                    }
+                }
+                if (hoveredIndex !== -1) {
+                    const accent = colorMap[canvasId];
+                    tooltip.innerHTML = `
+                        <div style="font-size:12px; font-weight:700; color:#f1f5f9;">${platformData.names[hoveredIndex]}</div>
+                        <div style="font-size:10px; font-family:'DM Mono',monospace; color:${accent}; margin-top:2px;">${platformData.labels[hoveredIndex]}</div>
+                    `;
+                    tooltip.style.left = e.clientX + 'px';
+                    tooltip.style.top = (e.clientY - 4) + 'px';
+                    tooltip.style.opacity = 1;
+                    canvas.style.cursor = 'pointer';
+                } else {
+                    tooltip.style.opacity = 0;
+                    canvas.style.cursor = 'default';
+                }
+            });
+            canvas.addEventListener('mouseleave', () => {
+                tooltip.style.opacity = 0;
+                canvas.style.cursor = 'default';
+            });
+        }
+    </script>
+</body>
+</html>

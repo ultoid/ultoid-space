@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dim">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File Manager — Ultoid Space</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+<style>
+  /* ─── JEMBATAN VARIABEL (MAPPING KE TEMA ULTOID) ─── */
+  :root {
+    --bg:        var(--bg-base, #07090f);
+    --surface:   var(--bg-mid, #0d1117);
+    --surface2:  var(--glass-bg, rgba(255,255,255,0.04));
+    --surface3:  var(--glass-hover, rgba(255,255,255,0.07));
+    --border:    var(--glass-border, rgba(255,255,255,0.08));
+    --border2:   rgba(255,255,255,0.13);
+    --text:      var(--text-primary, #f1f5f9);
+    --muted:     var(--text-muted, #64748b);
+    --accent:    #3b82f6; /* Aksen Biru */
+    --accent2:   #60a5fa;
+    --danger:    #f43f5e;
+    --success:   #10b981;
+    --warning:   #f5a623;
+    --sidebar-w: 220px;
+    --header-h:  56px;
+    --radius:    12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ─── LAYOUT ─────────────────────────────── */
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ─── TOP BAR ─────────────────────────────── */
+  .topbar {
+    height: var(--header-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .topbar-logo {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 600; font-size: 15px; color: var(--text);
+    text-decoration: none; flex-shrink: 0;
+  }
+  .topbar-logo svg { color: var(--accent); }
+  .topbar-search {
+    flex: 1; max-width: 560px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 24px;
+    display: flex; align-items: center;
+    padding: 0 14px; gap: 8px;
+    transition: border-color .2s, background .2s;
+  }
+  .topbar-search:focus-within {
+    border-color: var(--accent);
+    background: var(--surface3);
+  }
+  .topbar-search input {
+    border: none; outline: none; background: transparent;
+    color: var(--text); font-family: inherit; font-size: 14px;
+    width: 100%; padding: 8px 0;
+  }
+  .topbar-search input::placeholder { color: var(--muted); }
+  .topbar-actions { margin-left: auto; display: flex; gap: 6px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: none; background: transparent; color: var(--muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .icon-btn:hover { background: var(--surface3); color: var(--text); }
+
+  /* ─── BODY SPLIT ──────────────────────────── */
+  .body { display: flex; flex: 1; overflow: hidden; }
+
+  /* ─── SIDEBAR ─────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 12px 8px;
+    gap: 2px;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .sidebar-section { margin-top: 16px; padding: 0 8px; }
+  .sidebar-section-label {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin-bottom: 6px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: var(--radius-sm);
+    cursor: pointer; color: var(--muted); font-weight: 500;
+    transition: background .15s, color .15s;
+    user-select: none; border: none; background: transparent;
+    width: 100%; text-align: left; font-family: inherit; font-size: 13px;
+  }
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: rgba(79,126,248,.15); color: var(--accent2); }
+  .sidebar-item svg { flex-shrink: 0; }
+  .sidebar-storage { margin-top: auto; padding: 12px 8px; }
+  .storage-bar-bg {
+    height: 4px; background: var(--surface3); border-radius: 99px;
+    margin: 8px 0 4px; overflow: hidden;
+  }
+  .storage-bar-fill {
+    height: 100%; border-radius: 99px;
+    background: var(--accent); transition: width .5s;
+  }
+  .storage-bar-fill.warn { background: var(--danger); }
+  .storage-text { font-size: 11px; color: var(--muted); }
+
+  /* ─── MAIN ────────────────────────────────── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ─── BREADCRUMB / TOOLBAR ────────────────── */
+  .toolbar {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0; background: var(--surface);
+    flex-wrap: wrap; gap: 8px;
+  }
+  .breadcrumb {
+    display: flex; align-items: center; gap: 4px;
+    flex: 1; min-width: 0; overflow: hidden;
+  }
+  .breadcrumb-item {
+    font-size: 13px; color: var(--muted); cursor: pointer;
+    white-space: nowrap; transition: color .15s;
+    background: none; border: none; font-family: inherit; padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .breadcrumb-item:hover { color: var(--text); background: var(--surface2); }
+  .breadcrumb-item.current { color: var(--text); font-weight: 500; cursor: default; }
+  .breadcrumb-item.current:hover { background: transparent; }
+  .breadcrumb-sep { color: var(--muted); font-size: 12px; }
+  .toolbar-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  
+  .view-toggle {
+    display: flex; border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .view-toggle button {
+    padding: 6px 10px; background: transparent; border: none;
+    color: var(--muted); cursor: pointer; display: flex;
+    align-items: center; transition: all .15s;
+  }
+  .view-toggle button.active { background: var(--accent); color: #fff; }
+
+  /* ─── FILE AREA ───────────────────────────── */
+  .file-area {
+    flex: 1; overflow-y: auto; padding: 20px;
+    position: relative;
+  }
+  .file-area.drag-over::after {
+    content: '';
+    position: absolute; inset: 0;
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    background: rgba(79,126,248,.05);
+    pointer-events: none; z-index: 10;
+  }
+
+  /* ─── SECTION HEADER ──────────────────────── */
+  .section-header {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--muted);
+    padding: 4px 0 10px; margin-top: 4px;
+  }
+
+  /* ─── GRID VIEW ───────────────────────────── */
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px; margin-bottom: 20px;
+  }
+  .file-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px 12px;
+    cursor: pointer; position: relative;
+    transition: border-color .15s, background .15s, transform .15s;
+    user-select: none;
+  }
+  .file-card:hover { border-color: var(--border2); background: var(--surface2); transform: translateY(-1px); }
+  .file-card.selected { border-color: var(--accent); background: rgba(79,126,248,.08); }
+  .file-card.drag-src { opacity: .4; }
+  .file-card.drop-target { border-color: var(--accent); background: rgba(79,126,248,.15); }
+  .file-card-check {
+    position: absolute; top: 8px; left: 8px;
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 1.5px solid var(--border2); background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s;
+  }
+  .file-card:hover .file-card-check,
+  .file-card.selected .file-card-check { opacity: 1; }
+  .file-card.selected .file-card-check { background: var(--accent); border-color: var(--accent); }
+  .file-card-icon {
+    width: 64px; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px; border-radius: 8px;
+    font-size: 36px;
+  }
+  .file-card-name {
+    font-size: 12px; font-weight: 500; text-align: center;
+    word-break: break-word; line-height: 1.35;
+    max-height: 2.7em; overflow: hidden;
+  }
+  .file-card-meta {
+    font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px;
+  }
+
+  /* ─── LIST VIEW ───────────────────────────── */
+  .file-list { margin-bottom: 20px; }
+  .file-list-header {
+    display: grid;
+    grid-template-columns: 24px 1fr 100px 130px 100px;
+    gap: 0; padding: 6px 10px 6px 12px;
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em;
+    border-bottom: 1px solid var(--border);
+  }
+  .file-row {
+    display: grid;
+    grid-template-columns: 24px 1fr 100px 130px 100px;
+    gap: 0; padding: 9px 10px 9px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; border-radius: var(--radius-sm);
+    transition: background .12s;
+    position: relative; align-items: center;
+  }
+  .file-row:hover { background: var(--surface2); }
+  .file-row.selected { background: rgba(79,126,248,.08); }
+  .file-row.drag-src { opacity: .4; }
+  .file-row.drop-target { background: rgba(79,126,248,.15); outline: 1.5px dashed var(--accent); }
+  .file-row-check {
+    width: 16px; height: 16px; border-radius: 3px;
+    border: 1.5px solid var(--border2); background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all .12s;
+  }
+  .file-row.selected .file-row-check { background: var(--accent); border-color: var(--accent); }
+  .file-row-name {
+    display: flex; align-items: center; gap: 8px;
+    min-width: 0;
+  }
+  .file-row-icon { font-size: 18px; flex-shrink: 0; }
+  .file-row-label { font-size: 13px; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+  .file-row-size, .file-row-date, .file-row-type {
+    font-size: 12px; color: var(--muted);
+  }
+
+  /* ─── EMPTY STATE ─────────────────────────── */
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 80px 20px; text-align: center; gap: 12px;
+    color: var(--muted);
+  }
+  .empty-state svg { opacity: .3; }
+  .empty-state h3 { font-size: 16px; color: var(--text); font-weight: 500; }
+  .empty-state p { font-size: 13px; max-width: 300px; }
+
+  /* ─── CONTEXT MENU ────────────────────────── */
+  .ctx-menu {
+    position: fixed; z-index: 9999;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 6px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    min-width: 200px;
+    animation: ctxIn .12s ease;
+  }
+  @keyframes ctxIn { from { opacity:0; transform:scale(.95); } }
+  .ctx-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 13px; color: var(--text);
+    transition: background .1s; border: none; background: transparent;
+    width: 100%; text-align: left; font-family: inherit;
+  }
+  .ctx-item:hover { background: var(--surface3); }
+  .ctx-item.danger { color: var(--danger); }
+  .ctx-item.danger:hover { background: rgba(240,82,82,.1); }
+  .ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* ─── MODALS ──────────────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,.65);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    animation: fadeIn .15s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; } }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 28px;
+    width: 100%; max-width: 440px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    animation: slideUp .18s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(16px); } }
+  .modal-lg { max-width: 840px; }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  /* ─── PREVIEW MODAL ───────────────────────── */
+  .preview-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  }
+  .preview-header h2 { font-size: 15px; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .preview-body {
+    background: var(--bg); border-radius: var(--radius);
+    min-height: 340px; max-height: 70vh;
+    display: flex; align-items: center; justify-content: center;
+    overflow: auto; padding: 16px;
+  }
+  .preview-body img { max-width: 100%; max-height: 65vh; border-radius: 6px; }
+  .preview-body video { max-width: 100%; max-height: 65vh; border-radius: 6px; }
+  .preview-body audio { width: 100%; }
+  .preview-body pre {
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    color: var(--text); white-space: pre-wrap; word-break: break-word;
+    width: 100%; text-align: left;
+  }
+  .preview-body iframe { width: 100%; height: 65vh; border: none; border-radius: 6px; background: white; }
+  .preview-unsupported {
+    text-align: center; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .preview-unsupported span { font-size: 48px; }
+
+  /* ─── UPLOAD DROP ZONE ────────────────────── */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 32px; text-align: center;
+    cursor: pointer; transition: all .2s; margin-bottom: 14px;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent); background: rgba(79,126,248,.05);
+  }
+  .upload-zone p { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .upload-progress { margin-top: 12px; }
+  .upload-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .upload-bar-bg { flex: 1; height: 4px; background: var(--surface3); border-radius: 99px; overflow: hidden; }
+  .upload-bar-fill { height: 100%; background: var(--accent); transition: width .2s; border-radius: 99px; }
+
+  /* ─── FLOATING ACTION BAR ─────────────────── */
+  .fab {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 99px; padding: 10px 20px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    z-index: 200;
+    transition: opacity .2s, transform .2s;
+    opacity: 0; pointer-events: none;
+    transform: translateX(-50%) translateY(8px);
+  }
+  .fab.show { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
+  .fab-count { font-weight: 600; color: var(--accent2); }
+  .fab-sep { width: 1px; height: 20px; background: var(--border2); }
+
+  /* ─── TOAST ───────────────────────────────── */
+  .toast-container {
+    position: fixed; bottom: 80px; right: 20px;
+    display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+  }
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    animation: toastIn .2s ease; display: flex; align-items: center; gap: 8px;
+    max-width: 300px;
+  }
+  @keyframes toastIn { from { opacity:0; transform:translateX(20px); } }
+  .toast.error { border-color: rgba(240,82,82,.3); background: rgba(240,82,82,.1); }
+  .toast.success { border-color: rgba(52,201,125,.3); }
+
+  /* ─── SCROLLBAR ───────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 99px; }
+
+  /* ─── SELECTION RECT ──────────────────────── */
+  #sel-rect {
+    position: fixed; pointer-events: none; z-index: 50;
+    border: 1px solid var(--accent); background: rgba(79,126,248,.08);
+    display: none;
+  }
+
+  /* responsive */
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+    .file-list-header, .file-row { grid-template-columns: 24px 1fr 80px; }
+    .file-row-size, .file-row-date { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="topbar u-glass">
+  <a href="/space" class="topbar-logo">
+    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    Ultoid Space
+  </a>
+
+  <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+
+  <svg width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+  <span style="font-weight:600;font-size:15px;">File Manager</span>
+
+  <div class="topbar-search">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="searchInput" class="u-input" placeholder="Cari file dan folder..." oninput="filterFiles()">
+  </div>
+
+  <div class="topbar-actions">
+    <button class="icon-btn" onclick="setView('grid')" title="Grid view" id="btnGrid">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    </button>
+    <button class="icon-btn" onclick="setView('list')" title="List view" id="btnList">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="body">
+
+  <aside class="sidebar">
+    <button class="sidebar-item active" id="sb-my" onclick="sidebarNav('my')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+      File Manager
+    </button>
+    <button class="sidebar-item" id="sb-recent" onclick="sidebarNav('recent')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Terbaru
+    </button>
+    <button class="sidebar-item" id="sb-trash" onclick="sidebarNav('trash')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      Sampah
+    </button>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Folder Cepat</div>
+      <button class="sidebar-item" onclick="navigateTo('Translate')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+        Translate
+      </button>
+      <button class="sidebar-item" onclick="navigateTo('Download')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button class="sidebar-item" onclick="navigateTo('Wallpaper')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Wallpaper
+      </button>
+    </div>
+
+    <div class="sidebar-storage">
+      <div class="storage-text" id="storageText">Memuat...</div>
+      <div class="storage-bar-bg">
+        <div class="storage-bar-fill" id="storageBar" style="width:0%"></div>
+      </div>
+      <div class="storage-text" id="storageFree"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div class="toolbar-actions">
+        <button class="u-btn u-btn-ghost" onclick="openUploadModal()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload
+        </button>
+        <button class="u-btn u-btn-primary" onclick="openNewFolder()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+          Folder Baru
+        </button>
+      </div>
+    </div>
+
+    <div class="file-area" id="fileArea"
+         ondragover="onAreaDragOver(event)" ondrop="onAreaDrop(event)"
+         ondragleave="onAreaDragLeave(event)"
+         oncontextmenu="onAreaCtx(event)"
+         onmousedown="onAreaMouseDown(event)">
+      <div id="fileContent">
+        <div class="empty-state">
+          <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+          <h3>Memuat file...</h3>
+          <p>Mohon tunggu sebentar</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+
+<div id="sel-rect"></div>
+
+<div class="fab u-glass" id="fab">
+  <span class="fab-count" id="fabCount">0</span>
+  <span style="color:var(--muted);font-size:13px;">dipilih</span>
+  <div class="fab-sep"></div>
+  <button class="u-btn u-btn-ghost" onclick="downloadSelected()" style="padding:6px 12px;font-size:12px;">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Unduh ZIP
+  </button>
+  <button class="u-btn u-btn-danger" onclick="deleteSelected()" style="padding:6px 12px;font-size:12px;">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+    Hapus
+  </button>
+  <button class="icon-btn" onclick="clearSelection()" title="Batal pilih">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="ctx-menu u-glass" id="ctxMenu" style="display:none"></div>
+
+<div class="modal-backdrop" id="modalFolder" style="display:none" onclick="closeModal('modalFolder')">
+  <div class="modal u-glass" onclick="event.stopPropagation()">
+    <h2>📁 Buat Folder Baru</h2>
+    <input class="u-input" id="folderName" placeholder="Nama folder" onkeydown="if(event.key==='Enter')createFolder()">
+    <div class="modal-actions">
+      <button class="u-btn u-btn-ghost" onclick="closeModal('modalFolder')">Batal</button>
+      <button class="u-btn u-btn-primary" onclick="createFolder()">Buat</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalRename" style="display:none" onclick="closeModal('modalRename')">
+  <div class="modal u-glass" onclick="event.stopPropagation()">
+    <h2>✏️ Ganti Nama</h2>
+    <input class="u-input" id="renameInput" placeholder="Nama baru" onkeydown="if(event.key==='Enter')doRename()">
+    <div class="modal-actions">
+      <button class="u-btn u-btn-ghost" onclick="closeModal('modalRename')">Batal</button>
+      <button class="u-btn u-btn-primary" onclick="doRename()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalUpload" style="display:none" onclick="closeModal('modalUpload')">
+  <div class="modal u-glass" onclick="event.stopPropagation()">
+    <h2>⬆️ Upload File</h2>
+    <div class="upload-zone" id="uploadZone"
+         ondragover="uploadZoneDragOver(event)" ondrop="uploadZoneDrop(event)" ondragleave="uploadZoneDragLeave(event)"
+         onclick="document.getElementById('fileInput').click()">
+      <svg width="32" height="32" fill="none" stroke="var(--muted)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p>Klik atau seret file ke sini</p>
+      <p style="font-size:11px;margin-top:4px;">Semua jenis file didukung</p>
+    </div>
+    <input type="file" id="fileInput" multiple style="display:none" onchange="uploadFiles(this.files)">
+    <div class="upload-progress" id="uploadProgress"></div>
+    <div class="modal-actions">
+      <button class="u-btn u-btn-ghost" onclick="closeModal('modalUpload')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalPreview" style="display:none" onclick="closeModal('modalPreview')">
+  <div class="modal modal-lg u-glass" onclick="event.stopPropagation()">
+    <div class="preview-header">
+      <h2 id="previewTitle">Preview</h2>
+      <button class="u-btn u-btn-ghost" id="previewDownloadBtn" style="padding:6px 12px;font-size:12px;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Unduh
+      </button>
+      <button class="icon-btn" onclick="closeModal('modalPreview')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="preview-body" id="previewBody"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalMove" style="display:none" onclick="closeModal('modalMove')">
+  <div class="modal u-glass" onclick="event.stopPropagation()">
+    <h2>📦 Pindahkan ke...</h2>
+    <div id="moveFolderList" style="max-height:240px;overflow-y:auto;margin-bottom:8px;"></div>
+    <div class="modal-actions">
+      <button class="u-btn u-btn-ghost" onclick="closeModal('modalMove')">Batal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let currentPath = '';
+let viewMode    = localStorage.getItem('fm_view') || 'grid';
+let selected    = new Set();
+let allItems    = { folders: [], files: [] };
+let renameTarget = null;
+let moveTargets  = [];
+let sidebarMode  = 'my';
+let dragSrcItem  = null;
+let isSelecting  = false; // Untuk Marquee Drag-Select
+let startX = 0, startY = 0;
+let initialSelection = new Set();
+
+const API = path => '/api/fm' + path;
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  setView(viewMode, true);
+  loadStorage();
+  navigateTo('');
+  document.addEventListener('click', () => hideCtx());
+  document.addEventListener('keydown', onKeyDown);
+});
+
+// ═══════════════════════════════════════
+//  STORAGE INFO
+// ═══════════════════════════════════════
+async function loadStorage() {
+  try {
+    const r = await fetch(API('/storage'));
+    const d = await r.json();
+    document.getElementById('storageText').textContent = `${d.used_gb} GB / ${d.total_gb} GB`;
+    document.getElementById('storageFree').textContent = `${d.free_gb} GB tersisa`;
+    const bar = document.getElementById('storageBar');
+    bar.style.width = d.percent_used + '%';
+    if (d.percent_used > 90) bar.classList.add('warn');
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════
+function navigateTo(path) {
+  currentPath = path;
+  clearSelection();
+  updateBreadcrumb();
+  loadFiles();
+  updateSidebarActive('my');
+}
+
+function updateBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  const parts = currentPath ? currentPath.split('/').filter(Boolean) : [];
+  let html = `<button class="breadcrumb-item ${!currentPath?'current':''}" onclick="navigateTo('')">File Manager</button>`;
+  let accumulated = '';
+  parts.forEach((p, i) => {
+    accumulated += (accumulated ? '/' : '') + p;
+    const isLast = i === parts.length - 1;
+    const cap = accumulated;
+    html += `<span class="breadcrumb-sep">›</span>`;
+    html += `<button class="breadcrumb-item ${isLast?'current':''}" onclick="navigateTo('${cap}')">${p}</button>`;
+  });
+  bc.innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+//  LOAD FILES
+// ═══════════════════════════════════════
+async function loadFiles() {
+  const fc = document.getElementById('fileContent');
+  fc.innerHTML = `<div class="empty-state"><svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><p>Memuat...</p></div>`;
+  try {
+    const r = await fetch(API(`/list?path=${encodeURIComponent(currentPath)}`));
+    const d = await r.json();
+    allItems = d;
+    renderFiles(d);
+  } catch(e) {
+    fc.innerHTML = `<div class="empty-state"><h3>Gagal memuat</h3><p>${e.message}</p></div>`;
+  }
+}
+
+function renderFiles(data, filterStr = '') {
+  let { folders, files } = data;
+  if (filterStr) {
+    const q = filterStr.toLowerCase();
+    folders = folders.filter(f => f.name.toLowerCase().includes(q));
+    files   = files.filter(f => f.name.toLowerCase().includes(q));
+  }
+
+  const fc = document.getElementById('fileContent');
+  if (!folders.length && !files.length) {
+    fc.innerHTML = `<div class="empty-state">
+      <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+      <h3>Folder kosong</h3>
+      <p>Upload file atau buat folder baru</p>
+    </div>`;
+    return;
+  }
+
+  if (viewMode === 'grid') renderGrid(folders, files);
+  else renderList(folders, files);
+}
+
+function renderGrid(folders, files) {
+  const fc = document.getElementById('fileContent');
+  let html = '';
+
+  if (folders.length) {
+    html += `<div class="section-header">Folder (${folders.length})</div>`;
+    html += `<div class="file-grid" id="grid-folders">`;
+    folders.forEach(f => {
+      const sel = selected.has('folder:' + f.name);
+      html += `<div class="file-card u-glass${sel?' selected':''}" 
+        id="item-folder-${CSS.escape(f.name)}"
+        data-type="folder" data-name="${esc(f.name)}"
+        draggable="true"
+        ondragstart="onDragStart(event,'folder','${esc(f.name)}')"
+        ondragover="onItemDragOver(event,this,'folder','${esc(f.name)}')"
+        ondrop="onItemDrop(event,this,'folder','${esc(f.name)}')"
+        ondragleave="onItemDragLeave(this)"
+        onclick="onItemClick(event,'folder','${esc(f.name)}')"
+        ondblclick="navigateTo('${esc(currentPath ? currentPath+'/'+f.name : f.name)}')"
+        oncontextmenu="onItemCtx(event,'folder','${esc(f.name)}')">
+        <div class="file-card-check">
+          <svg width="10" height="10" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="file-card-icon">📁</div>
+        <div class="file-card-name">${esc(f.name)}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (files.length) {
+    html += `<div class="section-header" style="margin-top:${folders.length?'16px':'0'}">File (${files.length})</div>`;
+    html += `<div class="file-grid" id="grid-files">`;
+    files.forEach(f => {
+      const sel = selected.has('file:' + f.name);
+      
+      // --- KODE PREVIEW GAMBAR ---
+      const ext = fileExt(f.name);
+      const isImage = ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
+      const streamUrl = API(`/stream?path=${encodeURIComponent(f.rel_path||(currentPath ? currentPath+'/'+f.name : f.name))}`);
+      const iconContent = isImage 
+        ? `<img src="${streamUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;" loading="lazy" alt="preview">` 
+        : fileIcon(f.name);
+      // ---------------------------
+
+      html += `<div class="file-card u-glass${sel?' selected':''}"
+        id="item-file-${CSS.escape(f.name)}"
+        data-type="file" data-name="${esc(f.name)}"
+        draggable="true"
+        ondragstart="onDragStart(event,'file','${esc(f.name)}')"
+        onclick="onItemClick(event,'file','${esc(f.name)}')"
+        ondblclick="openFile('${esc(f.name)}','${esc(f.rel_path||f.name)}')"
+        oncontextmenu="onItemCtx(event,'file','${esc(f.name)}')">
+        <div class="file-card-check">
+          <svg width="10" height="10" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="file-card-icon">${iconContent}</div>
+        <div class="file-card-name">${esc(f.name)}</div>
+        <div class="file-card-meta">${f.size}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  fc.innerHTML = html;
+}
+
+function renderList(folders, files) {
+  const fc = document.getElementById('fileContent');
+  let html = `<div class="file-list">
+    <div class="file-list-header">
+      <div></div>
+      <div>Nama</div>
+      <div>Ukuran</div>
+      <div>Diubah</div>
+      <div>Jenis</div>
+    </div>`;
+
+  folders.forEach(f => {
+    const sel = selected.has('folder:' + f.name);
+    html += `<div class="file-row${sel?' selected':''}"
+      data-type="folder" data-name="${esc(f.name)}"
+      draggable="true"
+      ondragstart="onDragStart(event,'folder','${esc(f.name)}')"
+      ondragover="onItemDragOver(event,this,'folder','${esc(f.name)}')"
+      ondrop="onItemDrop(event,this,'folder','${esc(f.name)}')"
+      ondragleave="onItemDragLeave(this)"
+      onclick="onItemClick(event,'folder','${esc(f.name)}')"
+      ondblclick="navigateTo('${esc(currentPath ? currentPath+'/'+f.name : f.name)}')"
+      oncontextmenu="onItemCtx(event,'folder','${esc(f.name)}')">
+      <div class="file-row-check">
+        <svg width="9" height="9" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="file-row-name">
+        <span class="file-row-icon">📁</span>
+        <span class="file-row-label">${esc(f.name)}</span>
+      </div>
+      <div class="file-row-size">—</div>
+      <div class="file-row-date">${f.date || '—'}</div>
+      <div class="file-row-type">Folder</div>
+    </div>`;
+  });
+
+  files.forEach(f => {
+    const sel = selected.has('file:' + f.name);
+    
+    // --- KODE PREVIEW GAMBAR UNTUK LIST VIEW ---
+    const ext = fileExt(f.name);
+    const isImage = ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
+    const streamUrl = API(`/stream?path=${encodeURIComponent(f.rel_path||(currentPath ? currentPath+'/'+f.name : f.name))}`);
+    const iconContent = isImage 
+      ? `<img src="${streamUrl}" style="width:18px;height:18px;object-fit:cover;border-radius:3px;" loading="lazy">` 
+      : fileIcon(f.name);
+    // -------------------------------------------
+
+    html += `<div class="file-row${sel?' selected':''}"
+      data-type="file" data-name="${esc(f.name)}"
+      draggable="true"
+      ondragstart="onDragStart(event,'file','${esc(f.name)}')"
+      onclick="onItemClick(event,'file','${esc(f.name)}')"
+      ondblclick="openFile('${esc(f.name)}','${esc(f.rel_path||f.name)}')"
+      oncontextmenu="onItemCtx(event,'file','${esc(f.name)}')">
+      <div class="file-row-check">
+        <svg width="9" height="9" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="file-row-name">
+        <span class="file-row-icon" style="display:flex;align-items:center;">${iconContent}</span>
+        <span class="file-row-label">${esc(f.name)}</span>
+      </div>
+      <div class="file-row-size">${f.size}</div>
+      <div class="file-row-date">${f.date || '—'}</div>
+      <div class="file-row-type">${ext.toUpperCase() || 'File'}</div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  fc.innerHTML = html;
+}
+
+function filterFiles() {
+  const q = document.getElementById('searchInput').value;
+  renderFiles(allItems, q);
+}
+
+// ═══════════════════════════════════════
+//  SELECTION
+// ═══════════════════════════════════════
+function onItemClick(e, type, name) {
+  e.stopPropagation();
+  const key = type + ':' + name;
+  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+    if (selected.has(key)) selected.delete(key);
+    else selected.add(key);
+  } else {
+    if (selected.has(key) && selected.size === 1) {
+      selected.clear();
+    } else {
+      selected.clear();
+      selected.add(key);
+    }
+  }
+  updateSelectionUI();
+}
+
+function clearSelection() {
+  selected.clear();
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  document.querySelectorAll('.file-card, .file-row').forEach(el => {
+    const key = el.dataset.type + ':' + el.dataset.name;
+    el.classList.toggle('selected', selected.has(key));
+  });
+  const fab = document.getElementById('fab');
+  const count = selected.size;
+  document.getElementById('fabCount').textContent = count;
+  fab.classList.toggle('show', count > 0);
+}
+
+// ═══════════════════════════════════════
+//  MULTI DRAG & DROP (File/Folder)
+// ═══════════════════════════════════════
+function onDragStart(e, type, name) {
+  const key = type + ':' + name;
+  
+  if (!selected.has(key)) {
+    selected.clear();
+    selected.add(key);
+    updateSelectionUI();
+  }
+  
+  dragSrcItems = [...selected].map(k => {
+    const [t, ...r] = k.split(':');
+    return { type: t, name: r.join(':') };
+  });
+
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', JSON.stringify(dragSrcItems));
+  
+  setTimeout(() => {
+    document.querySelectorAll('.file-card, .file-row').forEach(el => {
+      if (dragSrcItems.find(it => it.name === el.dataset.name && it.type === el.dataset.type)) {
+        el.classList.add('drag-src');
+      }
+    });
+  }, 0);
+}
+
+document.addEventListener('dragend', () => {
+  document.querySelectorAll('.drag-src').forEach(el => el.classList.remove('drag-src'));
+  dragSrcItems = null;
+});
+
+function onItemDragOver(e, el, type, name) {
+  if (type !== 'folder') return;
+  if (dragSrcItems && dragSrcItems.find(i => i.name === name)) return;
+  e.preventDefault(); e.stopPropagation();
+  el.classList.add('drop-target');
+}
+
+function onItemDragLeave(el) {
+  el.classList.remove('drop-target');
+}
+
+async function onItemDrop(e, el, type, name) {
+  e.preventDefault(); e.stopPropagation();
+  el.classList.remove('drop-target');
+  
+  if (type !== 'folder' || !dragSrcItems) return;
+  if (dragSrcItems.find(i => i.name === name)) return;
+
+  document.querySelectorAll('.drag-src').forEach(elem => elem.classList.remove('drag-src'));
+  
+  const itemsToMove = dragSrcItems;
+  dragSrcItems = null;
+
+  if (itemsToMove.some(i => i.type === 'folder')) {
+      if (!confirm("⚠️ ALARM: Anda menyeleksi sebuah Folder! Yakin ingin memindahkan folder ini beserta seluruh isinya ke tempat baru?")) {
+          clearSelection(); 
+          return;
+      }
+  }
+
+  let successCount = 0;
+  const dropTargetPath = currentPath ? currentPath + '/' + name : name;
+
+  for (const it of itemsToMove) {
+    const res = await apiFetch('/move', 'POST', { path: currentPath, item: it.name, target_folder: dropTargetPath });
+    if(res.success) successCount++;
+  }
+  
+  toast(`✅ ${successCount} item dipindahkan ke "${name}"`);
+  clearSelection();
+  loadFiles();
+}
+
+function onAreaDragOver(e) {
+  if (e.dataTransfer.types.includes('Files')) {
+    e.preventDefault();
+    document.getElementById('fileArea').classList.add('drag-over');
+  }
+}
+
+function onAreaDragLeave(e) {
+  if (!document.getElementById('fileArea').contains(e.relatedTarget))
+    document.getElementById('fileArea').classList.remove('drag-over');
+}
+
+async function onAreaDrop(e) {
+  e.preventDefault();
+  document.getElementById('fileArea').classList.remove('drag-over');
+  if (e.dataTransfer.files.length) {
+    openUploadModal();
+    uploadFiles(e.dataTransfer.files);
+  }
+  if (dragSrcItems) {
+    document.querySelectorAll('.drag-src').forEach(el => el.classList.remove('drag-src'));
+    dragSrcItems = null;
+  }
+}
+
+// ═══════════════════════════════════════
+//  MARQUEE SELECTION (DRAG TO SELECT KOTAK)
+// ═══════════════════════════════════════
+function onAreaMouseDown(e) {
+  if (e.button !== 0) return; 
+  if (e.target.closest('.file-card, .file-row, .u-btn, .icon-btn')) return; 
+
+  isSelecting = true;
+  startX = e.clientX;
+  startY = e.clientY;
+
+  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+    initialSelection = new Set(selected);
+  } else {
+    initialSelection = new Set();
+    clearSelection();
+  }
+
+  const selRect = document.getElementById('sel-rect');
+  selRect.style.display = 'block';
+  selRect.style.left = startX + 'px';
+  selRect.style.top = startY + 'px';
+  selRect.style.width = '0px';
+  selRect.style.height = '0px';
+}
+
+document.addEventListener('mousemove', (e) => {
+  if (!isSelecting) return;
+  
+  const currentX = e.clientX;
+  const currentY = e.clientY;
+  
+  const x = Math.min(startX, currentX);
+  const y = Math.min(startY, currentY);
+  const w = Math.abs(currentX - startX);
+  const h = Math.abs(currentY - startY);
+  
+  const selRect = document.getElementById('sel-rect');
+  selRect.style.left = x + 'px';
+  selRect.style.top = y + 'px';
+  selRect.style.width = w + 'px';
+  selRect.style.height = h + 'px';
+
+  const rect = { left: x, top: y, right: x + w, bottom: y + h };
+
+  document.querySelectorAll('.file-card, .file-row').forEach(el => {
+    const box = el.getBoundingClientRect();
+    const safeBox = { left: box.left + 25, right: box.right - 25, top: box.top + 25, bottom: box.bottom - 25 };
+    const overlap = !(rect.right < safeBox.left || rect.left > safeBox.right || rect.bottom < safeBox.top || rect.top > safeBox.bottom);
+    const key = el.dataset.type + ':' + el.dataset.name;
+
+    if (overlap) {
+      selected.add(key);
+    } else {
+      if (initialSelection.has(key)) selected.add(key);
+      else selected.delete(key);
+    }
+  });
+  
+  if (w > 5 || h > 5) updateSelectionUI(); 
+});
+
+document.addEventListener('mouseup', () => {
+  if (isSelecting) {
+    isSelecting = false;
+    document.getElementById('sel-rect').style.display = 'none';
+  }
+});
+
+// ═══════════════════════════════════════
+//  CONTEXT MENU
+// ═══════════════════════════════════════
+let ctxTarget = null;
+function onItemCtx(e, type, name) {
+  e.preventDefault(); e.stopPropagation();
+  ctxTarget = { type, name };
+  if (!selected.has(type+':'+name)) {
+    selected.clear();
+    selected.add(type+':'+name);
+    updateSelectionUI();
+  }
+  showCtx(e.clientX, e.clientY, buildItemMenu(type, name));
+}
+
+function onAreaCtx(e) {
+  if (e.target.closest('.file-card, .file-row')) return;
+  e.preventDefault();
+  ctxTarget = null;
+  showCtx(e.clientX, e.clientY, buildAreaMenu());
+}
+
+function buildItemMenu(type, name) {
+  const isFolder = type === 'folder';
+  let items = [];
+  if (!isFolder) {
+    items.push({ icon:'👁️', label:'Buka / Preview', action: () => openFile(name, currentPath ? currentPath+'/'+name : name) });
+    items.push({ icon:'⬇️', label:'Unduh', action: () => downloadItem(type, name) });
+  } else {
+    items.push({ icon:'📂', label:'Buka Folder', action: () => navigateTo(currentPath ? currentPath+'/'+name : name) });
+    items.push({ icon:'⬇️', label:'Unduh sebagai ZIP', action: () => downloadItem(type, name) });
+  }
+  items.push({ sep: true });
+  items.push({ icon:'✏️', label:'Ganti Nama', action: () => openRename(type, name) });
+  items.push({ icon:'📦', label:'Pindahkan ke...', action: () => openMove([{type,name}]) });
+  items.push({ icon:'📋', label:'Duplikat', action: () => duplicateItem(type, name) });
+  items.push({ sep: true });
+  items.push({ icon:'🗑️', label:'Hapus', action: () => deleteItems([{type,name}]), danger: true });
+  return items;
+}
+
+function buildAreaMenu() {
+  return [
+    { icon:'📁', label:'Folder Baru', action: () => openNewFolder() },
+    { icon:'⬆️', label:'Upload File', action: () => openUploadModal() },
+    { sep: true },
+    { icon:'🔄', label:'Muat Ulang', action: () => loadFiles() },
+  ];
+}
+
+function showCtx(x, y, items) {
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = ''; 
+
+  items.forEach(it => {
+    if (it.sep) {
+      const sep = document.createElement('div');
+      sep.className = 'ctx-sep';
+      menu.appendChild(sep);
+      return;
+    }
+    
+    const btn = document.createElement('button');
+    btn.className = 'ctx-item' + (it.danger ? ' danger' : '');
+    btn.innerHTML = `${it.icon} ${it.label}`;
+    
+    btn.onclick = (e) => {
+      e.stopPropagation(); 
+      it.action();
+      hideCtx();
+    };
+    
+    menu.appendChild(btn);
+  });
+
+  menu.style.display = 'block';
+  
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const mw = 220, mh = items.length * 38;
+  menu.style.left = (x + mw > vw ? x - mw : x) + 'px';
+  menu.style.top  = (y + mh > vh ? y - mh : y) + 'px';
+}
+
+function hideCtx() {
+  document.getElementById('ctxMenu').style.display = 'none';
+}
+
+// ═══════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════
+async function createFolder() {
+  const name = document.getElementById('folderName').value.trim();
+  if (!name) return;
+  await apiFetch('/create_folder', 'POST', { path: currentPath, name });
+  closeModal('modalFolder');
+  toast('📁 Folder dibuat');
+  loadFiles();
+}
+
+function openRename(type, name) {
+  renameTarget = { type, name };
+  document.getElementById('renameInput').value = name;
+  openModal('modalRename');
+  setTimeout(() => document.getElementById('renameInput').select(), 50);
+}
+
+async function doRename() {
+  const newName = document.getElementById('renameInput').value.trim();
+  if (!newName || !renameTarget) return;
+  await apiFetch('/rename', 'POST', { path: currentPath, old_name: renameTarget.name, new_name: newName });
+  closeModal('modalRename');
+  toast('✏️ Nama diubah');
+  loadFiles();
+}
+
+async function duplicateItem(type, name) {
+  await apiFetch('/duplicate', 'POST', { path: currentPath, item: name });
+  toast('📋 Disalin');
+  loadFiles();
+}
+
+function downloadItem(type, name) {
+  const url = API(`/download?path=${encodeURIComponent(currentPath)}&item=${encodeURIComponent(name)}`);
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+}
+
+async function downloadSelected() {
+  if (!selected.size) return;
+  const items = [...selected].map(k => k.split(':').slice(1).join(':'));
+  const url = API(`/bulk_download?path=${encodeURIComponent(currentPath)}&items=${items.map(encodeURIComponent).join('|')}`);
+  const a = document.createElement('a'); a.href = url; a.download = 'Ultoid_Export.zip'; a.click();
+}
+
+async function deleteSelected() {
+  if (!selected.size) return;
+  const items = [...selected].map(k => {
+    const [type, ...rest] = k.split(':');
+    return { type, name: rest.join(':') };
+  });
+  if (!confirm(`Hapus ${items.length} item secara permanen?`)) return;
+  await deleteItems(items);
+}
+
+async function deleteItems(items) {
+  await apiFetch('/bulk_delete', 'POST', { path: currentPath, items: items.map(i => i.name) });
+  toast(`🗑️ ${items.length} item dihapus`, 'success');
+  clearSelection();
+  loadFiles();
+}
+
+// ═══════════════════════════════════════
+//  MOVE MODAL (DINAMIS SEMUA DIREKTORI)
+// ═══════════════════════════════════════
+let currentMovePath = '';
+
+function openMove(items) {
+  moveTargets = items;
+  currentMovePath = ''; 
+  loadMoveModal(currentMovePath);
+  openModal('modalMove');
+}
+
+async function loadMoveModal(path) {
+  currentMovePath = path;
+  const list = document.getElementById('moveFolderList');
+  list.innerHTML = `<div style="text-align:center;padding:10px;"><span class="text-xl">⏳ Memuat...</span></div>`;
+  
+  try {
+    const res = await apiFetch(`/list?path=${encodeURIComponent(path)}`);
+    const folders = res.folders.filter(f => !moveTargets.find(i => i.name === f.name && i.type === 'folder'));
+    
+    let html = '';
+    
+    if (path !== '') {
+      const parentPath = path.split('/').slice(0, -1).join('/');
+      html += `
+        <button class="sidebar-item" onclick="loadMoveModal('${esc(parentPath)}')" style="width:100%; margin-bottom:4px; color:var(--accent2);">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+          ... (Kembali ke folder atas)
+        </button>
+      `;
+    }
+    
+    if (folders.length === 0) {
+      html += `<div style="color:var(--muted);font-size:12px;padding:8px;text-align:center;">Tidak ada sub-folder</div>`;
+    } else {
+      folders.forEach(f => {
+        const targetPath = path ? path + '/' + f.name : f.name;
+        html += `
+          <div style="display:flex;gap:4px;margin-bottom:2px;">
+            <button class="sidebar-item" style="flex:1;" onclick="loadMoveModal('${esc(targetPath)}')">
+              📁 ${esc(f.name)}
+            </button>
+            <button class="u-btn u-btn-ghost" style="padding:4px 8px;font-size:11px;" onclick="doMove('${esc(targetPath)}')">Pilih</button>
+          </div>
+        `;
+      });
+    }
+    
+    const isCurrentDir = (path === currentPath);
+    html += `
+      <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+         <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">
+           Lokasi tujuan: <b style="color:var(--text)">${path === '' ? 'Root (File Manager)' : esc(path)}</b>
+         </div>
+         ${isCurrentDir 
+           ? `<button class="u-btn u-btn-ghost" style="width:100%" disabled>⚠️ Item sudah ada di sini</button>` 
+           : `<button class="u-btn u-btn-primary" style="width:100%" onclick="doMove('${esc(path)}')">Pindahkan ke lokasi ini</button>`
+         }
+      </div>
+    `;
+    
+    list.innerHTML = html;
+  } catch(e) {
+    list.innerHTML = `<p style="color:var(--danger);font-size:13px;">Gagal memuat folder.</p>`;
+  }
+}
+
+async function doMove(targetPath) {
+  let successCount = 0;
+  for (const it of moveTargets) {
+    const res = await apiFetch('/move', 'POST', { path: currentPath, item: it.name, target_folder: targetPath });
+    if(res.success) successCount++;
+  }
+  closeModal('modalMove');
+  toast(`📦 ${successCount} item dipindahkan`);
+  clearSelection();
+  loadFiles();
+}
+
+// ═══════════════════════════════════════
+//  UPLOAD
+// ═══════════════════════════════════════
+function openUploadModal() { openModal('modalUpload'); }
+
+function uploadZoneDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('dragover'); }
+function uploadZoneDragLeave(e) { document.getElementById('uploadZone').classList.remove('dragover'); }
+function uploadZoneDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  uploadFiles(e.dataTransfer.files);
+}
+
+async function uploadFiles(files) {
+  const prog = document.getElementById('uploadProgress');
+  for (const file of files) {
+    const id = 'up_' + Math.random().toString(36).slice(2);
+    prog.insertAdjacentHTML('beforeend', `
+      <div class="upload-item" id="${id}">
+        <span style="flex:1;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(file.name)}</span>
+        <div class="upload-bar-bg"><div class="upload-bar-fill" style="width:0%" id="${id}_bar"></div></div>
+        <span style="font-size:11px;color:var(--muted);width:36px;text-align:right" id="${id}_pct">0%</span>
+      </div>`);
+
+    const fd = new FormData();
+    fd.append('path', currentPath);
+    fd.append('files', file);
+
+    await new Promise(res => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', API('/upload'));
+      xhr.upload.onprogress = e => {
+        const pct = Math.round(e.loaded/e.total*100);
+        document.getElementById(id+'_bar').style.width = pct + '%';
+        document.getElementById(id+'_pct').textContent = pct + '%';
+      };
+      xhr.onload = () => {
+        document.getElementById(id+'_pct').textContent = '✅';
+        res();
+      };
+      xhr.onerror = () => { document.getElementById(id+'_pct').textContent = '❌'; res(); };
+      xhr.send(fd);
+    });
+  }
+  loadFiles(); loadStorage();
+}
+
+// ═══════════════════════════════════════
+//  FILE PREVIEW
+// ═══════════════════════════════════════
+const PREVIEW_TYPES = {
+  image: ['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'],
+  video: ['mp4','webm','ogg','mov'],
+  audio: ['mp3','wav','ogg','m4a','flac','aac'],
+  pdf:   ['pdf'],
+  text:  ['txt','md','csv','json','xml','html','css','js','py','sh','log','yaml','yml','ini','conf','ts','jsx','tsx','sql'],
+};
+
+async function openFile(name, relPath) {
+  const ext = fileExt(name);
+  const streamUrl = API(`/stream?path=${encodeURIComponent(relPath || (currentPath ? currentPath+'/'+name : name))}`);
+  const previewTitle = document.getElementById('previewTitle');
+  const previewBody  = document.getElementById('previewBody');
+  const dlBtn        = document.getElementById('previewDownloadBtn');
+
+  previewTitle.textContent = name;
+  dlBtn.onclick = () => downloadItem('file', name);
+
+  let bodyHtml = '';
+
+  if (PREVIEW_TYPES.image.includes(ext)) {
+    bodyHtml = `<img src="${streamUrl}" alt="${esc(name)}">`;
+  } else if (PREVIEW_TYPES.video.includes(ext)) {
+    bodyHtml = `<video controls autoplay src="${streamUrl}"></video>`;
+  } else if (PREVIEW_TYPES.audio.includes(ext)) {
+    bodyHtml = `<audio controls autoplay src="${streamUrl}"></audio>`;
+  } else if (PREVIEW_TYPES.pdf.includes(ext)) {
+    bodyHtml = `<iframe src="${streamUrl}"></iframe>`;
+  } else if (PREVIEW_TYPES.text.includes(ext)) {
+    try {
+      const r = await fetch(streamUrl);
+      const text = await r.text();
+      bodyHtml = `<pre>${escHtml(text.slice(0,20000))}${text.length>20000?'\n\n... (terpotong)':''}</pre>`;
+    } catch(e) {
+      bodyHtml = unsupportedHtml(name, 'Gagal memuat teks');
+    }
+  } else {
+    bodyHtml = unsupportedHtml(name, 'Format file ini tidak dapat dipratinjau di browser');
+  }
+
+  previewBody.innerHTML = bodyHtml;
+  openModal('modalPreview');
+}
+
+function unsupportedHtml(name, msg) {
+  return `<div class="preview-unsupported">
+    <span>${fileIcon(name)}</span>
+    <strong style="color:var(--text)">${esc(name)}</strong>
+    <p>${msg}</p>
+    <button class="u-btn u-btn-primary" onclick="downloadItem('file','${esc(name)}')">⬇️ Unduh File</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+//  VIEW MODE
+// ═══════════════════════════════════════
+function setView(mode, noRender) {
+  viewMode = mode;
+  localStorage.setItem('fm_view', mode);
+  document.getElementById('btnGrid').classList.toggle('active', mode === 'grid');
+  document.getElementById('btnList').classList.toggle('active', mode === 'list');
+  if (!noRender) renderFiles(allItems);
+}
+
+// ═══════════════════════════════════════
+//  SIDEBAR MODES
+// ═══════════════════════════════════════
+function sidebarNav(mode) {
+  sidebarMode = mode;
+  updateSidebarActive(mode);
+  if (mode === 'my') navigateTo('');
+  else if (mode === 'recent') loadRecent();
+  else if (mode === 'trash') toast('🚧 Fitur sampah belum diaktifkan di server');
+}
+
+function updateSidebarActive(active) {
+  ['my','recent','trash'].forEach(k => {
+    const el = document.getElementById('sb-'+k);
+    if (el) el.classList.toggle('active', k === active);
+  });
+}
+
+async function loadRecent() {
+  try {
+    const r = await fetch(API('/recent'));
+    const d = await r.json();
+    allItems = { folders: [], files: d.files || [] };
+    document.getElementById('breadcrumb').innerHTML = `<span class="breadcrumb-item current">Terbaru</span>`;
+    renderFiles(allItems);
+  } catch(e) {
+    toast('Tidak ada data terbaru', 'error');
+  }
+}
+
+// ═══════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════
+function onKeyDown(e) {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') { clearSelection(); hideCtx(); }
+  if (e.key === 'Delete' && selected.size) deleteSelected();
+  if ((e.ctrlKey||e.metaKey) && e.key === 'a') {
+    e.preventDefault();
+    allItems.folders.forEach(f => selected.add('folder:'+f.name));
+    allItems.files.forEach(f => selected.add('file:'+f.name));
+    updateSelectionUI();
+  }
+}
+
+// ═══════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+  if (id === 'modalPreview') document.getElementById('previewBody').innerHTML = '';
+  if (id === 'modalUpload') document.getElementById('uploadProgress').innerHTML = '';
+  if (id === 'modalFolder') document.getElementById('folderName').value = '';
+}
+function openNewFolder() {
+  openModal('modalFolder');
+  setTimeout(() => document.getElementById('folderName').focus(), 50);
+}
+function openUploadModal() { openModal('modalUpload'); }
+
+// ═══════════════════════════════════════
+//  API HELPER
+// ═══════════════════════════════════════
+async function apiFetch(path, method='GET', body) {
+  const opts = { method, headers: { 'Content-Type':'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API(path), opts);
+  return r.json();
+}
+
+// ═══════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════
+function toast(msg, type='') {
+  const tc = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  tc.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ═══════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fileExt(name) {
+  const parts = String(name).split('.');
+  return parts.length > 1 ? parts.pop().toLowerCase() : '';
+}
+function fileIcon(name) {
+  const ext = fileExt(name);
+  const map = {
+    pdf:'📄', doc:'📝', docx:'📝', txt:'📃', md:'📃',
+    mp4:'🎬', mkv:'🎬', avi:'🎬', mov:'🎬', webm:'🎬',
+    mp3:'🎵', wav:'🎵', flac:'🎵', m4a:'🎵', aac:'🎵',
+    jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', webp:'🖼️', svg:'🖼️',
+    zip:'🗜️', rar:'🗜️', '7z':'🗜️', tar:'🗜️',
+    py:'🐍', js:'📜', ts:'📜', html:'🌐', css:'🎨',
+    json:'📊', csv:'📊', xlsx:'📊', xls:'📊',
+    exe:'⚙️', sh:'⚙️', bat:'⚙️',
+  };
+  return map[ext] || '📎';
+}
+</script>
+</body>
+</html>

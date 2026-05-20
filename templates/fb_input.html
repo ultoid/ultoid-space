@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Histori Bulanan FB · Ultoid Space</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* ─── JEMBATAN VARIABEL (MAPPING KE TEMA ULTOID) ─── */
+        :root {
+            --bg:        var(--bg-base, #07090f);
+            --glass:     var(--glass-bg, rgba(255,255,255,0.04));
+            --border:    var(--glass-border, rgba(255,255,255,0.08));
+            --border-h:  var(--glass-hover, rgba(255,255,255,0.13));
+            --muted:     var(--text-muted, #64748b);
+            --text:      var(--text-primary, #f1f5f9);
+            --accent:    var(--accent-blue, #3b82f6);
+            --dim:       var(--text-dim, #334155);
+        }
+
+        body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+        body::before { content:''; position:fixed; top:-20%; left:-10%; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%); pointer-events:none; z-index:0; }
+
+        /* Kustomisasi Input Cell khusus tabel Excel-like */
+        .input-cell { background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: #38bdf8; font-family: 'DM Mono', monospace; font-size: 13px; text-align: center; width: 50px; padding: 6px 2px; border-radius: 6px; transition: all .2s; outline: none; }
+        .input-cell:focus { border-color: var(--accent); background: rgba(59,130,246,0.1); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        .table-wrap { overflow-x: auto; }
+        .table-wrap::-webkit-scrollbar { height: 6px; }
+        .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+        
+        table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+        thead th { padding: 12px 10px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: rgba(0,0,0,0.2); white-space: nowrap; }
+        tbody tr { border-top: 1px solid var(--border); transition: background .15s; }
+        tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        select { appearance: none; -webkit-appearance: none; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer; outline: none;}
+        select option { background: #07090f; color: #fff; }
+        
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .fade-up { animation: fadeUp .4s ease both; }
+        main { position: relative; z-index: 1; }
+    </style>
+</head>
+<body class="p-4 sm:p-6">
+
+    <input type="file" id="excelFileInput" accept=".xlsx" class="hidden" onchange="handleFileSelect(event)">
+
+    <main class="max-w-7xl mx-auto space-y-5 fade-up">
+        
+        <div class="u-glass p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div class="flex items-center gap-4">
+                <a href="/fb-scraper" class="u-btn u-btn-ghost text-xs">← Ke Dasbor Utama</a>
+                <div>
+                    <h1 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                        ✏️ Matriks Bulanan FB
+                        <select id="yearSelector" onchange="changeYear()">
+                            <option value="2026">Tahun 2026</option>
+                            <option value="2027">Tahun 2027</option>
+                            <option value="2028">Tahun 2028</option>
+                            <option value="2029">Tahun 2029</option>
+                            <option value="2030">Tahun 2030</option>
+                            <option value="2031">Tahun 2031</option>
+                            <option value="2032">Tahun 2032</option>
+                        </select>
+                    </h1>
+                    <p style="font-size:10px; font-family:'DM Mono',monospace; color:#34d399; margin-top:4px; display:flex; align-items:center; gap:4px;">
+                        <span style="width:6px; height:6px; background:#34d399; border-radius:50%; box-shadow:0 0 4px #34d399; animation:pulse 2s infinite;"></span> Auto-Save Aktif
+                    </p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('excelFileInput').click()" id="btnImport" class="u-btn w-full sm:w-auto justify-center" style="background: rgba(16,185,129,0.12); color: #34d399; border-color: rgba(16,185,129,0.2);">
+                <span>📗 Import Excel Master</span>
+            </button>
+        </div>
+
+        <div style="background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:16px; padding:16px; display:flex; gap:12px; align-items:center;">
+            <span style="font-size:20px;">💡</span>
+            <p style="font-size:12px; color:var(--muted); line-height:1.5;">
+                Sistem mendukung Timeline Multi-Tahun. Kolom Kumulatif akan dihitung & dikunci otomatis untuk <b>Tahun 2027 ke atas</b>. Gunakan file <b>Excel (.xlsx)</b> untuk Import massal.
+            </p>
+        </div>
+
+        <div class="u-glass overflow-hidden relative fade-up" style="animation-delay:0.1s;">
+            <div id="importOverlay" class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center">
+                <div style="width:32px; height:32px; border:3px solid var(--border); border-top-color:#34d399; border-radius:50%; animation:spin 1s linear infinite; margin-bottom:12px;"></div>
+                <h3 style="color:#34d399; font-size:13px; font-weight:700; letter-spacing:0.05em;">Menyinkronkan Excel...</h3>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:40px; text-align:center;">#</th>
+                            <th style="width:240px; text-align:left;">Nama Dealer <span style="text-transform:none; color:#60a5fa; font-weight:400; font-size:9px;">(Bisa diedit)</span></th>
+                            <th id="thPreviousYear" style="text-align:center; background:rgba(249,115,22,0.05); color:#fb923c; border-left:1px solid var(--border); border-right:1px solid var(--border);">Post 2025</th>
+                            <th style="text-align:center; color:#38bdf8; font-family:'DM Mono',monospace;">Jan</th>
+                            <th style="text-align:center; color:#38bdf8; font-family:'DM Mono',monospace;">Feb</th>
+                            <th style="text-align:center; color:#38bdf8; font-family:'DM Mono',monospace;">Mar</th>
+                            <th style="text-align:center; color:#38bdf8; font-family:'DM Mono',monospace;">Apr</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Mei</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Jun</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Jul</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Agu</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Sep</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Okt</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Nov</th>
+                            <th style="text-align:center; font-family:'DM Mono',monospace;">Des</th>
+                            <th id="thTotalCurrent" style="text-align:center; background:rgba(59,130,246,0.1); color:#60a5fa;">Total 2026</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inputMatrixBody">
+                        <tr><td colspan="16" style="padding:40px; text-align:center; color:var(--dim);">Memuat matriks diler...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let accountsData = {};
+        const monthsArr = ['jan','feb','mar','apr','mei','jun','jul','agu','sep','okt','nov','des'];
+        let currentYear = 2026; 
+
+        document.addEventListener('DOMContentLoaded', loadMatrix);
+
+        function changeYear() {
+            currentYear = parseInt(document.getElementById('yearSelector').value);
+            renderMatrix();
+        }
+
+        async function loadMatrix() {
+            try {
+                const res = await fetch('/api/fb/accounts');
+                const data = await res.json();
+                accountsData = data.accounts || data;
+                renderMatrix();
+            } catch(e) { console.error(e); }
+        }
+
+        function renderMatrix() {
+            const tbody = document.getElementById('inputMatrixBody');
+            document.getElementById('thPreviousYear').innerText = `Kumulatif < ${currentYear}`;
+            document.getElementById('thTotalCurrent').innerText = `Kumulatif ≤ ${currentYear}`;
+
+            const sortedKeys = Object.keys(accountsData).sort();
+            if(sortedKeys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="16" style="padding:40px; text-align:center; color:var(--dim);">Belum ada akun terdaftar di Dasbor Utama.</td></tr>`; return;
+            }
+
+            tbody.innerHTML = sortedKeys.map((u, idx) => {
+                const p = accountsData[u].profile;
+                const mYear = p[`posts_${currentYear}`] || {};
+                const fallbackName = p.bio ? p.bio.split('|')[0].trim() : u;
+                const display_name = p.custom_name || fallbackName;
+
+                let prevCumulative = p.posts_2025 || 0;
+                for (let y = 2026; y < currentYear; y++) {
+                    let pY = p[`posts_${y}`] || {};
+                    prevCumulative += Object.values(pY).reduce((a,b) => a+b, 0);
+                }
+
+                let currentYearSum = 0;
+                let inputsHtml = monthsArr.map(m => {
+                    let val = mYear[m] || 0;
+                    currentYearSum += val;
+                    return `<td style="padding:8px; text-align:center;">
+                        <input type="number" value="${val}" onchange="updateCell('${u}', 'month', '${m}', this.value)" class="input-cell">
+                    </td>`;
+                }).join('');
+
+                let prevCellHtml = '';
+                if (currentYear === 2026) {
+                    prevCellHtml = `<input type="number" value="${prevCumulative}" onchange="updateCell('${u}', 'year2025', '', this.value)" class="input-cell" style="border-color:rgba(249,115,22,0.3); color:#fb923c;">`;
+                } else {
+                    prevCellHtml = `<div style="color:#fb923c; font-family:'DM Mono',monospace; font-weight:700; text-align:center; font-size:12px;">${prevCumulative.toLocaleString('id-ID')}</div>`;
+                }
+
+                return `
+                    <tr>
+                        <td style="text-align:center; font-family:'DM Mono',monospace; color:var(--dim); font-size:11px;">${idx+1}</td>
+                        <td style="padding:12px 16px;">
+                            <input type="text" value="${display_name}" onchange="updateCell('${u}', 'custom_name', '', this.value)" style="width:100%; background:transparent; border:none; border-bottom:1px dashed var(--border); color:var(--text); font-weight:600; font-size:13px; outline:none; padding-bottom:2px;">
+                            <span style="display:block; font-size:10px; color:var(--dim); margin-top:4px;">@${p.username}</span>
+                        </td>
+                        <td style="padding:8px; text-align:center; background:rgba(249,115,22,0.02); border-left:1px solid var(--border); border-right:1px solid var(--border);">
+                            ${prevCellHtml}
+                        </td>
+                        ${inputsHtml}
+                        <td id="total-${u}" style="text-align:center; font-family:'DM Mono',monospace; font-weight:700; font-size:14px; color:#34d399; background:rgba(16,185,129,0.05);">
+                            ${(prevCumulative + currentYearSum).toLocaleString('id-ID')}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updateCell(username, type, monthKey, value) {
+            let payload = { username: username, year: currentYear };
+            if (type === 'custom_name') {
+                payload['custom_name'] = value; accountsData[username].profile.custom_name = value;
+            } else {
+                let valInt = parseInt(value); if(isNaN(valInt) || valInt < 0) valInt = 0;
+                if(type === 'year2025') {
+                    payload['posts_2025'] = valInt; accountsData[username].profile.posts_2025 = valInt;
+                } else {
+                    payload['months_data'] = {}; payload['months_data'][monthKey] = valInt;
+                    if(!accountsData[username].profile[`posts_${currentYear}`]) accountsData[username].profile[`posts_${currentYear}`] = {};
+                    accountsData[username].profile[`posts_${currentYear}`][monthKey] = valInt;
+                }
+
+                const p = accountsData[username].profile;
+                let prevCumulative = p.posts_2025 || 0;
+                for (let y = 2026; y < currentYear; y++) { let pY = p[`posts_${y}`] || {}; prevCumulative += Object.values(pY).reduce((a,b) => a+b, 0); }
+                const currentYearSum = Object.values(p[`posts_${currentYear}`] || {}).reduce((a,b) => a+b, 0);
+                document.getElementById(`total-${username}`).innerText = (prevCumulative + currentYearSum).toLocaleString('id-ID');
+            }
+            try { await fetch('/api/fb/save_posts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); } catch(e) {}
+        }
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const overlay = document.getElementById('importOverlay');
+            overlay.classList.remove('hidden'); overlay.classList.add('flex');
+            document.getElementById('btnImport').disabled = true;
+
+            const formData = new FormData(); formData.append('file', file);
+            try {
+                const response = await fetch('/api/fb/import_excel', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`✅ Import Excel Sukses!\nData ${result.updated} akun berhasil disinkronkan.`);
+                    await loadMatrix();
+                    try { fetch('/api/fb/auto_backup', { method: 'POST' }); } catch(err){}
+                } else { alert(`❌ Import Gagal:\n${result.error}`); }
+            } catch (error) { alert('Terjadi kesalahan koneksi.'); }
+
+            overlay.classList.add('hidden'); overlay.classList.remove('flex');
+            document.getElementById('btnImport').disabled = false; event.target.value = ''; 
+        }
+    </script>
+</body>
+</html>

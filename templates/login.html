@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Admin - Ultoid Space</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* ─── JEMBATAN VARIABEL (MAPPING KE TEMA ULTOID) ─── */
+        :root {
+            --bg: var(--bg-base, #07090f);
+        }
+        body { 
+            font-family: 'DM Sans', sans-serif; 
+            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            color: var(--text-primary, white); 
+        }
+        /* Efek cahaya radial mempertahankan desain asli */
+        .glow-blue { background: rgba(37, 99, 235, 0.1); }
+        .glow-purple { background: rgba(147, 51, 234, 0.1); }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen w-screen overflow-hidden p-4 relative">
+
+    <div class="absolute w-64 h-64 glow-blue rounded-full blur-3xl top-0 left-0 pointer-events-none"></div>
+    <div class="absolute w-72 h-72 glow-purple rounded-full blur-3xl bottom-0 right-0 pointer-events-none"></div>
+
+    <div class="u-glass p-8 sm:p-10 w-full max-w-md z-10">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 mb-4">
+                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11.5a13.917 13.917 0 00-2.343-7.534m15.68 4.94A13.93 13.93 0 0118 11.5c0 2.61.7 5.06 1.916 7.164m-4.64-1.88l.053-.09A13.916 13.916 0 0016 11.5c0-1.562-.257-3.064-.729-4.461M12 3v3m0 12v3m9-9h-3M6 12H3"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Ultoid Space</h1>
+            <p class="text-slate-400 text-sm mt-1.5">Silakan login untuk mengakses panel admin</p>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl relative mb-6 text-sm flex items-center gap-2" role="alert">
+            <svg class="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <span class="block sm:inline">{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <form action="/login" method="POST" class="space-y-5">
+            <div>
+                <label class="block text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2" for="username">Username</label>
+                <input class="u-input appearance-none rounded-xl w-full py-3 px-4 text-sm leading-tight focus:outline-none" 
+                       id="username" name="username" type="text" placeholder="Masukkan username" required autocomplete="off">
+            </div>
+            
+            <div>
+                <label class="block text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2" for="password">Password</label>
+                <input class="u-input appearance-none rounded-xl w-full py-3 px-4 text-sm leading-tight focus:outline-none" 
+                       id="password" name="password" type="password" placeholder="••••••••" required>
+            </div>
+
+            <div class="pt-2">
+                <button class="u-btn u-btn-primary text-white font-semibold py-3 px-4 rounded-xl w-full text-sm focus:outline-none transition-all duration-300 text-center justify-center shadow-lg" type="submit">
+                    Masuk ke Panel
+                </button>
+            </div>
+        </form>
+
+        <div class="text-center mt-8 border-t border-white/5 pt-4">
+            <a href="/" class="text-xs text-slate-400 hover:text-blue-400 transition-colors duration-200 inline-flex items-center gap-1.5">
+                Space ini khusus milik Uruto-Sensei
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

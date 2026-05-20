@@ -1,14 +1,27 @@
-# Jangan upload folder mesin Python portabel (ukurannya terlalu besar)
+# Lokal / portable files
+archive/
 python-3.13.13-embed-amd64/
+bin/
+share/
+Ultoid Translate.lnk
 
-# Jangan upload API Key pribadi!
+# Ignore secret and local config files
 API_key.txt
+.env
 
-# Jangan upload hasil kerja atau file sampah
+# Output / runtime data
 uploads/
 outputs/
+data/
+emulator_data/
+roms/
 __pycache__/
-
-# Jika ada folder environment lain
 venv/
-.env
+
+# Generated files
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.DS_Store
+thumbs.db

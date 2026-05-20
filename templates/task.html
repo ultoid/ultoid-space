@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar · Ultoid Space</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg:        var(--bg-base, #07090f);
+            --glass:     var(--glass-bg, rgba(255,255,255,0.04));
+            --border:    var(--glass-border, rgba(255,255,255,0.08));
+            --border-h:  var(--glass-hover, rgba(255,255,255,0.13));
+            --muted:     var(--text-muted, #64748b);
+            --dim:       var(--text-dim, #1e293b);
+            --text:      var(--text-primary, #f1f5f9);
+            --blue:      var(--accent-blue, #3b82f6);
+            --blue-glow: rgba(59,130,246,0.15);
+            --red:       #f43f5e;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            selection-color: white;
+        }
+
+        body::before { content:''; position:fixed; top:-15%; right:-5%; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%); pointer-events:none; z-index:0; }
+        body::after  { content:''; position:fixed; bottom:-15%; left:-5%; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%); pointer-events:none; z-index:0; }
+
+        .scroll::-webkit-scrollbar { width: 3px; }
+        .scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+
+        .day-cell {
+            min-height: 82px;
+            display: flex; flex-direction: column; align-items: stretch;
+            padding: 7px 5px;
+            cursor: pointer; border-radius: 12px;
+            border: 1px solid transparent;
+            transition: all .2s;
+            position: relative; overflow: hidden;
+        }
+        .day-cell:hover { background: rgba(255,255,255,0.04); border-color: var(--border); }
+        .day-cell.selected { border-color: var(--blue); background: rgba(59,130,246,0.08); }
+        .day-cell.today .day-num { background: var(--blue); color: white; box-shadow: 0 4px 12px rgba(59,130,246,0.5); }
+        .day-cell.is-holiday .day-num { color: var(--red); }
+        .day-cell.today.is-holiday .day-num { background: var(--red); color: white; box-shadow: 0 4px 12px rgba(244,63,94,0.5); }
+
+        .day-num {
+            width: 26px; height: 26px;
+            line-height: 26px; text-align: center;
+            border-radius: 50%;
+            font-size: 12px; font-weight: 600;
+            margin: 0 auto 5px;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        .mini-chip {
+            font-size: 9.5px;
+            padding: 2px 5px;
+            border-radius: 5px;
+            margin-bottom: 3px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            text-align: left;
+            border-left: 2px solid;
+            background: rgba(255,255,255,0.06);
+        }
+
+        .task-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 11px 13px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            background: rgba(255,255,255,0.03);
+            transition: all .2s;
+        }
+        .task-row:hover { border-color: var(--border); background: rgba(255,255,255,0.05); }
+        .task-row.active-blue { border-color: var(--blue); background: rgba(59,130,246,0.1); }
+        .task-row.active-red  { border-color: var(--red);  background: rgba(244,63,94,0.1); }
+
+        .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+        .status-bar {
+            display: flex;
+            background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+            border-radius: 9px; padding: 3px; gap: 2px;
+        }
+        .status-btn { flex: 1; padding: 6px 0; font-size: 11px; font-weight: 600; border-radius: 7px; border: none; cursor: pointer; background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif; transition: all .2s; }
+        .status-btn.active-upcoming  { background: rgba(100,116,139,0.3); color: #cbd5e1; }
+        .status-btn.active-progress  { background: rgba(234,179,8,0.2); color: #fde047; }
+        .status-btn.active-completed { background: rgba(34,197,94,0.2); color: #86efac; }
+
+        .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity .25s; }
+        .modal-bg.visible { opacity: 1; pointer-events: auto; }
+
+        .jump-menu {
+            position: absolute; top: calc(100% + 10px); right: 0;
+            width: 280px; background: #0d1117;
+            border: 1px solid var(--border-h); border-radius: 16px;
+            padding: 16px; z-index: 40;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+            opacity: 0; transform: scale(0.95) translateY(-6px);
+            transform-origin: top right;
+            pointer-events: none; transition: all .2s;
+        }
+        .jump-menu.visible { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+        .jump-select {
+            background: rgba(0,0,0,0.4); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text); outline: none;
+            padding: 6px 8px; font-size: 12px; font-family: 'DM Mono', monospace;
+            cursor: pointer;
+        }
+        .jump-select option { background: #0d1117; }
+
+        .clock { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); }
+
+        .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+        .badge-holiday   { background: rgba(244,63,94,0.15); color: var(--red); border: 1px solid rgba(244,63,94,0.25); }
+        .badge-upcoming  { background: rgba(100,116,139,0.15); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2); }
+        .badge-progress  { background: rgba(234,179,8,0.15); color: #fde047; border: 1px solid rgba(234,179,8,0.2); }
+        .badge-completed { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+        .badge-past-hol  { background: rgba(34,197,94,0.12); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+
+        .nav-stripe { height: 2px; background: linear-gradient(90deg, var(--blue), #818cf8); border-radius: 2px; }
+
+        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        .fu { animation: fadeUp .35s ease both; }
+        .fu1 { animation-delay: .04s; }
+        .fu2 { animation-delay: .1s; }
+        .fu3 { animation-delay: .16s; }
+
+        .live-dot { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e; animation: pd 2s ease-in-out infinite; }
+        @keyframes pd { 0%,100%{opacity:1}50%{opacity:.3} }
+    </style>
+</head>
+<body class="p-4 md:p-6" style="position:relative; z-index:1;">
+
+<div class="max-w-[1400px] w-full mx-auto flex flex-col" style="min-height:100vh;">
+
+    <div class="flex justify-between items-center mb-5 fu">
+        <div>
+            <a href="/space" style="font-size:12px; color:var(--muted); text-decoration:none; display:flex; align-items:center; gap:5px; margin-bottom:4px; transition:color .2s;" onmouseover="this.style.color='#f1f5f9'" onmouseout="this.style.color='var(--muted)'">← Kembali ke Space</a>
+            <h1 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">Ultoid <span style="color:var(--blue);">Calendar</span></h1>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:12px; padding:8px 14px;">
+            <div class="live-dot"></div>
+            <span id="currentTime" class="clock">00:00:00</span>
+        </div>
+    </div>
+
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:overflow-hidden">
+
+        <div class="lg:col-span-4 flex flex-col gap-4 order-2 lg:order-1">
+
+            <div class="u-glass fu fu1" style="padding:20px; flex:none;">
+                <div style="font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; display:flex; align-items:center; gap:6px;">
+                    <span>📌</span> Detail Tugas
+                </div>
+                <div id="summaryContent"></div>
+            </div>
+
+            <div class="u-glass fu fu2" style="display:flex; flex-direction:column; overflow:hidden; min-height:380px;">
+                <div style="padding:18px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h2 id="listTitle" style="font-size:17px; font-weight:700; line-height:1.3;">—</h2>
+                    </div>
+                    <button onclick="openModal()" class="u-btn u-btn-primary" style="display:flex; align-items:center; gap:5px; white-space:nowrap; padding: 6px 12px; font-size:12px;">
+                        + Tambah
+                    </button>
+                </div>
+                <div id="taskList" class="scroll" style="flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
+
+        </div>
+
+        <div class="lg:col-span-8 u-glass fu fu3" style="display:flex; flex-direction:column; overflow:hidden; min-height:540px; order:1; padding:22px; position:relative;">
+            <div class="nav-stripe" style="position:absolute; top:0; left:0; right:0; border-radius:20px 20px 0 0;"></div>
+
+            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px;">
+                <h2 id="calendarMonth" style="font-size:19px; font-weight:700;">—</h2>
+                <div style="display:flex; align-items:center; gap:6px; position:relative; flex-wrap:wrap;">
+                    <button onclick="changeMonth(-1)" class="u-btn u-btn-ghost" style="padding:7px 11px; font-size:15px;">←</button>
+                    <button onclick="goToToday()" class="u-btn u-btn-ghost">Hari Ini</button>
+                    <button onclick="changeMonth(1)"  class="u-btn u-btn-ghost" style="padding:7px 11px; font-size:15px;">→</button>
+                    <div style="position:relative;">
+                        <button onclick="toggleJumpMenu()" class="u-btn" style="background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.25); color:#60a5fa; padding:7px 13px; font-size:12px; font-weight:600; border-radius:10px; cursor:pointer; font-family:'DM Sans',sans-serif;">🗓 Jump To</button>
+                        <div id="jumpMenu" class="jump-menu">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                                <span style="font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);">Navigasi Tanggal</span>
+                                <button onclick="toggleJumpMenu()" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px;" onmouseover="this.style.color='#f1f5f9'" onmouseout="this.style.color='var(--muted)'">✕</button>
+                            </div>
+                            <div style="display:flex; gap:6px; margin-bottom:12px;">
+                                <select id="jumpDay"   class="jump-select" style="width:28%;"></select>
+                                <select id="jumpMonth" class="jump-select" style="width:44%;">
+                                    <option value="0">Januari</option><option value="1">Februari</option>
+                                    <option value="2">Maret</option><option value="3">April</option>
+                                    <option value="4">Mei</option><option value="5">Juni</option>
+                                    <option value="6">Juli</option><option value="7">Agustus</option>
+                                    <option value="8">September</option><option value="9">Oktober</option>
+                                    <option value="10">November</option><option value="11">Desember</option>
+                                </select>
+                                <select id="jumpYear"  class="jump-select" style="width:28%;"></select>
+                            </div>
+                            <button onclick="executeJump()" class="u-btn u-btn-primary" style="width:100%; padding:9px; font-size:12px; justify-content:center;">Lompat 🚀</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cal-grid" style="margin-bottom:8px;">
+                <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--red);">Min</div>
+                <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);">Sen</div>
+                <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);">Sel</div>
+                <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);">Rab</div>
+                <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);">Kam</div>
+                <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);">Jum</div>
+                <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);">Sab</div>
+            </div>
+
+            <div id="calendarDays" class="cal-grid scroll" style="flex:1; overflow-y:auto; padding-right:2px;"></div>
+        </div>
+    </div>
+</div>
+
+<div id="taskModal" class="modal-bg">
+    <div class="u-glass" style="max-width: 420px; width: 100%; padding: 28px; transform: translateY(12px); transition: transform .25s;">
+        <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:20px;">Tambah Tugas</h3>
+        <form id="taskForm" style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+                <label style="display:block; font-size:11px; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em;">Judul Tugas</label>
+                <input type="text" id="taskInput" required placeholder="Contoh: Meeting dengan klien..." class="u-input w-full px-4 py-2.5">
+            </div>
+            <div>
+                <label style="display:block; font-size:11px; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em;">Detail & Catatan</label>
+                <textarea id="taskDetail" placeholder="Tuliskan detail pekerjaan..." rows="3" class="u-input scroll w-full p-4" style="resize:none;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:6px;">
+                <button type="button" onclick="closeModal()" class="u-btn u-btn-ghost" style="flex:1; justify-content:center;">Batal</button>
+                <button type="submit" id="btnSubmitTask" class="u-btn u-btn-primary" style="flex:2; justify-content:center;">Simpan Tugas</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="confirmDeleteModal" class="modal-bg">
+    <div class="u-glass" style="max-width:360px; width: 100%; padding: 28px; text-align:center; border-color:rgba(244,63,94,0.3);">
+        <div style="font-size:32px; margin-bottom:10px;">🗑️</div>
+        <h3 style="font-size:15px; font-weight:700; margin-bottom:8px;">Hapus Tugas?</h3>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.6;">Tugas ini akan dihapus secara permanen dari sistem.</p>
+        <div style="display:flex; gap:10px;">
+            <button onclick="closeConfirmDeleteModal()" class="u-btn u-btn-ghost" style="flex:1; justify-content:center;">Batal</button>
+            <button onclick="executeDeleteTask()" class="u-btn u-btn-danger" style="flex:1; justify-content:center; font-weight:700;">Ya, Hapus</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── State ───
+let tasks = {};
+let holidayMap = {};
+let currentViewDate = new Date();
+let selectedDateStr = formatDateKey(new Date());
+let editingTaskId = null;
+let selectedTaskDisplayIndex = null;
+
+// ─── Elements ───
+const taskList      = document.getElementById('taskList');
+const summaryContent = document.getElementById('summaryContent');
+const calendarDays  = document.getElementById('calendarDays');
+const calendarMonth = document.getElementById('calendarMonth');
+const listTitle     = document.getElementById('listTitle');
+const taskModal     = document.getElementById('taskModal');
+const taskForm      = document.getElementById('taskForm');
+const taskInput     = document.getElementById('taskInput');
+const taskDetailInput = document.getElementById('taskDetail');
+const modalTitle    = document.getElementById('modalTitle');
+const btnSubmitTask = document.getElementById('btnSubmitTask');
+const jumpMenu      = document.getElementById('jumpMenu');
+const jumpDay       = document.getElementById('jumpDay');
+const jumpMonth     = document.getElementById('jumpMonth');
+const jumpYear      = document.getElementById('jumpYear');
+
+// ─── Hari Besar Indonesia (hardcoded + dinamis) ───
+const FIXED_HOLIDAYS = {
+    '01-01': 'Tahun Baru Masehi',
+    '02-14': 'Hari Valentine (Hari Kasih Sayang)',
+    '03-22': 'Hari Air Sedunia',
+    '04-21': 'Hari Kartini',
+    '04-22': 'Hari Bumi',
+    '05-01': 'Hari Buruh Internasional',
+    '05-02': 'Hari Pendidikan Nasional (Hardiknas)',
+    '05-20': 'Hari Kebangkitan Nasional',
+    '06-01': 'Hari Lahir Pancasila',
+    '07-22': 'Hari Anak Nasional',
+    '08-17': 'Hari Kemerdekaan Republik Indonesia',
+    '09-28': 'Hari Kereta Api Indonesia',
+    '10-01': 'Hari Kesaktian Pancasila',
+    '10-02': 'Hari Batik Nasional',
+    '10-05': 'Hari Tentara Nasional Indonesia (TNI)',
+    '10-16': 'Hari Pangan Sedunia',
+    '10-28': 'Hari Sumpah Pemuda',
+    '11-10': 'Hari Pahlawan',
+    '11-25': 'Hari Guru Nasional',
+    '12-09': 'Hari Anti Korupsi Sedunia',
+    '12-22': 'Hari Ibu Nasional',
+    '12-25': 'Hari Natal',
+    '12-31': 'Malam Tahun Baru'
+};
+
+const VARIABLE_HOLIDAYS = {
+    '2024-01-01': 'Tahun Baru Masehi', '2024-02-08': 'Isra Miraj Nabi Muhammad SAW', '2024-02-10': 'Tahun Baru Imlek 2575', '2024-03-11': 'Hari Raya Nyepi (Tahun Baru Saka 1946)', '2024-03-29': 'Jumat Agung (Wafat Isa Al-Masih)', '2024-04-10': 'Hari Raya Idul Fitri 1445 H', '2024-04-11': 'Hari Raya Idul Fitri 1445 H (Hari Kedua)', '2024-05-09': 'Kenaikan Isa Al-Masih', '2024-05-23': 'Hari Raya Waisak', '2024-06-17': 'Hari Raya Idul Adha 1445 H', '2024-07-07': 'Tahun Baru Islam 1446 H', '2024-09-16': 'Maulid Nabi Muhammad SAW', '2024-12-25': 'Hari Natal', '2024-12-26': 'Cuti Bersama Natal',
+    '2025-01-01': 'Tahun Baru Masehi', '2025-01-27': 'Isra Miraj Nabi Muhammad SAW', '2025-01-29': 'Tahun Baru Imlek 2576', '2025-03-28': 'Hari Raya Nyepi (Tahun Baru Saka 1947)', '2025-03-29': 'Hari Raya Idul Fitri 1446 H', '2025-03-30': 'Hari Raya Idul Fitri 1446 H (Hari Kedua)', '2025-03-31': 'Cuti Bersama Idul Fitri', '2025-04-01': 'Cuti Bersama Idul Fitri', '2025-04-02': 'Cuti Bersama Idul Fitri', '2025-04-18': 'Jumat Agung (Wafat Isa Al-Masih)', '2025-05-01': 'Hari Buruh Internasional', '2025-05-12': 'Hari Raya Waisak', '2025-05-29': 'Kenaikan Isa Al-Masih', '2025-06-06': 'Hari Raya Idul Adha 1446 H', '2025-06-27': 'Tahun Baru Islam 1447 H', '2025-09-05': 'Maulid Nabi Muhammad SAW', '2025-12-25': 'Hari Natal', '2025-12-26': 'Cuti Bersama Natal',
+    '2026-01-01': 'Tahun Baru Masehi', '2026-01-17': 'Tahun Baru Imlek 2577', '2026-01-18': 'Isra Miraj Nabi Muhammad SAW', '2026-03-19': 'Hari Raya Idul Fitri 1447 H', '2026-03-20': 'Hari Raya Idul Fitri 1447 H (Hari Kedua)', '2026-03-21': 'Cuti Bersama Idul Fitri', '2026-03-24': 'Hari Raya Nyepi (Tahun Baru Saka 1948)', '2026-04-03': 'Jumat Agung (Wafat Isa Al-Masih)', '2026-05-01': 'Hari Buruh Internasional', '2026-05-14': 'Kenaikan Isa Al-Masih', '2026-05-27': 'Hari Raya Waisak', '2026-05-27': 'Hari Raya Idul Adha 1447 H', '2026-06-17': 'Tahun Baru Islam 1448 H', '2026-08-17': 'Hari Kemerdekaan Republik Indonesia', '2026-08-27': 'Maulid Nabi Muhammad SAW', '2026-12-25': 'Hari Natal',
+    '2027-01-01': 'Tahun Baru Masehi', '2027-01-08': 'Isra Miraj Nabi Muhammad SAW', '2027-01-26': 'Tahun Baru Imlek 2578', '2027-03-09': 'Hari Raya Idul Fitri 1448 H', '2027-03-10': 'Hari Raya Idul Fitri 1448 H (Hari Kedua)', '2027-03-13': 'Hari Raya Nyepi (Tahun Baru Saka 1949)', '2027-03-26': 'Jumat Agung (Wafat Isa Al-Masih)', '2027-05-01': 'Hari Buruh Internasional', '2027-05-04': 'Kenaikan Isa Al-Masih', '2027-05-17': 'Hari Raya Idul Adha 1448 H', '2027-05-21': 'Hari Raya Waisak', '2027-06-06': 'Tahun Baru Islam 1449 H', '2027-08-17': 'Hari Kemerdekaan Republik Indonesia', '2027-08-15': 'Maulid Nabi Muhammad SAW', '2027-12-25': 'Hari Natal',
+    '2028-01-01': 'Tahun Baru Masehi', '2028-02-15': 'Tahun Baru Imlek 2579', '2028-02-26': 'Hari Raya Idul Fitri 1449 H', '2028-02-27': 'Hari Raya Idul Fitri 1449 H (Hari Kedua)', '2028-03-01': 'Hari Raya Nyepi (Tahun Baru Saka 1950)', '2028-03-28': 'Isra Miraj Nabi Muhammad SAW', '2028-04-14': 'Jumat Agung (Wafat Isa Al-Masih)', '2028-05-01': 'Hari Buruh Internasional', '2028-05-05': 'Hari Raya Idul Adha 1449 H', '2028-05-10': 'Hari Raya Waisak', '2028-05-22': 'Kenaikan Isa Al-Masih', '2028-05-25': 'Tahun Baru Islam 1450 H', '2028-08-03': 'Maulid Nabi Muhammad SAW', '2028-08-17': 'Hari Kemerdekaan Republik Indonesia', '2028-12-25': 'Hari Natal',
+};
+
+// ─── Build local holiday map ───
+function buildLocalHolidays() {
+    const currentYear = new Date().getFullYear();
+    for (const [date, name] of Object.entries(VARIABLE_HOLIDAYS)) {
+        if (!holidayMap[date]) holidayMap[date] = [];
+        if (!holidayMap[date].some(h => h.text === name)) {
+            holidayMap[date].push({ text: name, detail: '🇮🇩 Hari Besar / Hari Libur Nasional Indonesia\n\n[Ditambahkan otomatis oleh sistem]', isHoliday: true });
+        }
+    }
+    for (let y = currentYear - 2; y <= currentYear + 5; y++) {
+        for (const [md, name] of Object.entries(FIXED_HOLIDAYS)) {
+            const date = `${y}-${md}`;
+            if (!holidayMap[date]) holidayMap[date] = [];
+            if (!holidayMap[date].some(h => h.text === name)) {
+                holidayMap[date].push({ text: name, detail: '🇮🇩 Hari Besar / Hari Libur Nasional Indonesia\n\n[Ditambahkan otomatis oleh sistem]', isHoliday: true });
+            }
+        }
+    }
+}
+
+// ─── API holiday loader ───
+async function loadHolidays(year) {
+    if (holidayMap[`${year}-01-01`] || holidayMap[`${year}-08-17`]) return;
+    try {
+        const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ID`);
+        if (res.ok) {
+            const data = await res.json();
+            data.forEach(h => {
+                if (!holidayMap[h.date]) holidayMap[h.date] = [];
+                if (!holidayMap[h.date].some(x => x.text === h.localName)) {
+                    holidayMap[h.date].push({ text: h.localName, detail: `🇮🇩 Hari Libur Nasional Indonesia\nNama internasional: ${h.name}\n\n[Diperoleh via API publik]`, isHoliday: true });
+                }
+            });
+        }
+    } catch {}
+}
+
+// ─── Init ───
+async function initApp() {
+    try {
+        const res = await fetch('/api/tasks');
+        if (res.ok) tasks = await res.json();
+    } catch { console.error('Gagal memuat tugas.'); }
+
+    buildLocalHolidays();
+    await loadHolidays(currentViewDate.getFullYear());
+
+    ensureStatusData();
+    initJumpMenu();
+    renderAll();
+    clickDate(selectedDateStr);
+}
+
+// ─── Helpers ───
+function formatDateKey(date) {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().split('T')[0];
+}
+
+function getIndoDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function ensureStatusData() {
+    for (const date in tasks) {
+        tasks[date].forEach(t => { if (!t.status) t.status = t.completed ? 'completed' : 'upcoming'; });
+    }
+}
+
+function getTasksForDate(dateStr) {
+    const todayStr = formatDateKey(new Date());
+    const hols = (holidayMap[dateStr] || []).map(h => ({
+        ...h,
+        status: dateStr < todayStr ? 'completed' : 'upcoming',
+        completed: dateStr < todayStr,
+        isHoliday: true
+    }));
+    const userT = (tasks[dateStr] || []).map((t, i) => ({ ...t, isHoliday: false, userTaskIndex: i }));
+    return [...hols, ...userT];
+}
+
+// ─── Jump menu ───
+function initJumpMenu() {
+    const now = new Date();
+    jumpYear.innerHTML = '';
+    for (let y = now.getFullYear() - 10; y <= now.getFullYear() + 10; y++) jumpYear.innerHTML += `<option value="${y}">${y}</option>`;
+    jumpDay.innerHTML = '';
+    for (let d = 1; d <= 31; d++) jumpDay.innerHTML += `<option value="${d}">${d}</option>`;
+    jumpDay.value = now.getDate();
+    jumpMonth.value = now.getMonth();
+    jumpYear.value = now.getFullYear();
+}
+
+function toggleJumpMenu() { jumpMenu.classList.toggle('visible'); }
+
+async function executeJump() {
+    const d = parseInt(jumpDay.value), m = parseInt(jumpMonth.value), y = parseInt(jumpYear.value);
+    const targetDate = new Date(y, m, d);
+    const oldYear = currentViewDate.getFullYear();
+    currentViewDate = new Date(y, m, 1);
+    if (oldYear !== y) { buildLocalHolidays(); await loadHolidays(y); }
+    clickDate(formatDateKey(targetDate));
+    toggleJumpMenu();
+}
+
+// ─── Navigation ───
+async function changeMonth(offset) {
+    const oldYear = currentViewDate.getFullYear();
+    currentViewDate.setMonth(currentViewDate.getMonth() + offset);
+    const newYear = currentViewDate.getFullYear();
+    if (oldYear !== newYear) { buildLocalHolidays(); await loadHolidays(newYear); }
+    renderCalendar();
+}
+
+async function goToToday() {
+    const today = new Date();
+    const oldYear = currentViewDate.getFullYear();
+    currentViewDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    if (oldYear !== today.getFullYear()) { buildLocalHolidays(); await loadHolidays(today.getFullYear()); }
+    clickDate(formatDateKey(today));
+}
+
+// ─── Render calendar ───
+function renderCalendar() {
+    const year = currentViewDate.getFullYear(), month = currentViewDate.getMonth();
+    calendarMonth.innerText = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(currentViewDate);
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = formatDateKey(new Date());
+
+    calendarDays.innerHTML = '';
+    for (let i = 0; i < firstDay; i++)
+        calendarDays.innerHTML += `<div class="day-cell" style="cursor:default; pointer-events:none;"></div>`;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dateStr = formatDateKey(date);
+        const isSelected = dateStr === selectedDateStr;
+        const isToday = dateStr === todayStr;
+        const dayTasks = getTasksForDate(dateStr);
+        const hasHoliday = dayTasks.some(t => t.isHoliday);
+
+        let chipsHtml = '';
+        const maxShow = 2;
+        dayTasks.slice(0, maxShow).forEach(t => {
+            let bc = 'rgba(100,116,139,0.7)', tc = '#94a3b8';
+            if (t.isHoliday) { bc = 'var(--red)'; tc = '#fda4af'; }
+            else if (t.status === 'progress')  { bc = '#eab308'; tc = '#fef08a'; }
+            else if (t.status === 'completed') { bc = '#22c55e'; tc = '#86efac'; }
+            else { bc = 'var(--blue)'; tc = '#93c5fd'; }
+            chipsHtml += `<div class="mini-chip" style="border-left-color:${bc}; color:${tc}; ${t.completed && !t.isHoliday ? 'opacity:.4; text-decoration:line-through;' : ''}">${t.text}</div>`;
+        });
+        if (dayTasks.length > maxShow)
+            chipsHtml += `<div style="font-size:9px; color:var(--muted); text-align:center; margin-top:2px;">+${dayTasks.length - maxShow} lainnya</div>`;
+
+        calendarDays.innerHTML += `
+            <div onclick="clickDate('${dateStr}')"
+                 class="day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${hasHoliday ? 'is-holiday' : ''}">
+                <div class="day-num">${day}</div>
+                ${chipsHtml}
+            </div>`;
+    }
+}
+
+// ─── Render task list ───
+function renderTasks() {
+    const dateTasks = getTasksForDate(selectedDateStr);
+    const todayStr = formatDateKey(new Date());
+    listTitle.innerText = selectedDateStr === todayStr ? 'Tugas Hari Ini' : getIndoDate(selectedDateStr);
+    listTitle.style.color = selectedDateStr === todayStr ? 'var(--text)' : '#60a5fa';
+
+    taskList.innerHTML = '';
+    if (!dateTasks.length) {
+        taskList.innerHTML = `<div style="text-align:center; opacity:.3; margin-top:20px; font-size:13px;">Kosong — tambahkan tugas!</div>`;
+        return;
+    }
+    dateTasks.forEach((task, index) => {
+        const isSelected = selectedTaskDisplayIndex === index;
+        let dotBg = '#64748b';
+        if (task.isHoliday) dotBg = 'var(--red)';
+        else if (task.status === 'progress')  dotBg = '#eab308';
+        else if (task.status === 'completed') dotBg = '#22c55e';
+        else dotBg = '#3b82f6';
+
+        let textStyle = 'color:var(--text);';
+        if (task.isHoliday) textStyle = task.completed ? 'color:var(--red);opacity:.5;text-decoration:line-through;' : 'color:var(--red);font-weight:700;';
+        else if (task.status === 'completed') textStyle = 'text-decoration:line-through;opacity:.45;';
+
+        const rowClass = isSelected ? (task.isHoliday ? 'active-red' : 'active-blue') : '';
+
+        taskList.innerHTML += `
+            <div onclick="selectTask(${index})" class="task-row ${rowClass}">
+                <div class="dot" style="background:${dotBg}; box-shadow:0 0 6px ${dotBg};"></div>
+                <span style="flex:1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${textStyle}">${task.text}</span>
+            </div>`;
+    });
+}
+
+// ─── Render summary ───
+function renderSummary() {
+    const dayTasks = getTasksForDate(selectedDateStr);
+    if (selectedTaskDisplayIndex === null || !dayTasks[selectedTaskDisplayIndex]) {
+        summaryContent.innerHTML = `
+            <div style="text-align:center; opacity:.3; padding:20px 0;">
+                <div style="font-size:32px; margin-bottom:8px;">🔍</div>
+                <p style="font-size:12px; line-height:1.6;">Pilih tugas untuk melihat detail.</p>
+            </div>`;
+        return;
+    }
+    const task = dayTasks[selectedTaskDisplayIndex];
+
+    let badge = '';
+    if (task.isHoliday)
+        badge = `<span class="badge ${task.completed ? 'badge-past-hol' : 'badge-holiday'}">${task.completed ? 'Libur Usai' : 'Hari Libur'}</span>`;
+    else if (task.status === 'upcoming')  badge = `<span class="badge badge-upcoming">Akan Datang</span>`;
+    else if (task.status === 'progress')  badge = `<span class="badge badge-progress">Progres</span>`;
+    else if (task.status === 'completed') badge = `<span class="badge badge-completed">Selesai</span>`;
+
+    let actions = '';
+    if (task.isHoliday) {
+        actions = `<div style="background:rgba(244,63,94,0.07); border:1px solid rgba(244,63,94,0.15); border-radius:10px; padding:10px 14px; margin-top:auto; text-align:center;">
+            <p style="font-size:11px; color:var(--red); font-weight:700;">🎯 Event Kalender Resmi (Otomatis)</p>
+        </div>`;
+    } else {
+        actions = `
+            <div class="status-bar" style="margin-bottom:10px;">
+                <button onclick="setTaskStatus('upcoming')"  class="status-btn ${task.status==='upcoming'  ? 'active-upcoming'  : ''}">⏳ Akan Datang</button>
+                <button onclick="setTaskStatus('progress')"  class="status-btn ${task.status==='progress'  ? 'active-progress'  : ''}">🔥 Progres</button>
+                <button onclick="setTaskStatus('completed')" class="status-btn ${task.status==='completed' ? 'active-completed' : ''}">✅ Selesai</button>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="openModal(true)" class="u-btn u-btn-ghost" style="flex:1; padding:8px; justify-content:center; color:#67e8f9; border-color:rgba(103,232,249,0.2);">✏️ Edit</button>
+                <button onclick="deleteSelectedTask()" class="u-btn u-btn-danger" style="flex:1; justify-content:center; padding:8px;">🗑️ Hapus</button>
+            </div>`;
+    }
+
+    summaryContent.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:10px;">
+            <h3 style="font-size:15px; font-weight:700; line-height:1.4; ${task.status==='completed'?'text-decoration:line-through;opacity:.5;':''}">${task.text}</h3>
+            <div style="flex-shrink:0;">${badge}</div>
+        </div>
+        <div class="scroll" style="max-height:100px; overflow-y:auto; margin-bottom:14px;">
+            <p style="font-size:12px; color:#94a3b8; white-space:pre-wrap; line-height:1.6;">${task.detail || '<i style="opacity:.5">Tidak ada catatan.</i>'}</p>
+        </div>
+        ${actions}`;
+}
+
+// ─── Interactions ───
+function clickDate(dateStr) {
+    selectedDateStr = dateStr;
+    selectedTaskDisplayIndex = null;
+    const parts = dateStr.split('-');
+    jumpYear.value  = parseInt(parts[0]);
+    jumpMonth.value = parseInt(parts[1]) - 1;
+    jumpDay.value   = parseInt(parts[2]);
+    currentViewDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+    renderAll();
+}
+
+function selectTask(index) {
+    selectedTaskDisplayIndex = index;
+    renderTasks(); renderSummary();
+    if (window.innerWidth < 1024)
+        document.getElementById('summaryContent').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function setTaskStatus(newStatus) {
+    if (selectedTaskDisplayIndex === null) return;
+    const task = getTasksForDate(selectedDateStr)[selectedTaskDisplayIndex];
+    if (task.isHoliday) return;
+    tasks[selectedDateStr][task.userTaskIndex].status = newStatus;
+    tasks[selectedDateStr][task.userTaskIndex].completed = (newStatus === 'completed');
+    saveAndRefresh();
+}
+
+function deleteSelectedTask() {
+    if (selectedTaskDisplayIndex === null) return;
+    const task = getTasksForDate(selectedDateStr)[selectedTaskDisplayIndex];
+    if (task.isHoliday) return;
+    document.getElementById('confirmDeleteModal').classList.add('visible');
+    // Ensure the modal box has a sliding up animation properly
+    document.querySelector('#confirmDeleteModal > div').style.transform = 'translateY(0)';
+}
+
+function executeDeleteTask() {
+    if (selectedTaskDisplayIndex !== null) {
+        const task = getTasksForDate(selectedDateStr)[selectedTaskDisplayIndex];
+        if (!task.isHoliday) {
+            tasks[selectedDateStr].splice(task.userTaskIndex, 1);
+            if (!tasks[selectedDateStr].length) delete tasks[selectedDateStr];
+            selectedTaskDisplayIndex = null;
+            saveAndRefresh();
+        }
+    }
+    closeConfirmDeleteModal();
+}
+
+window.closeConfirmDeleteModal = function() {
+    document.getElementById('confirmDeleteModal').classList.remove('visible');
+    document.querySelector('#confirmDeleteModal > div').style.transform = 'translateY(12px)';
+};
+
+// ─── Modal ───
+function openModal(isEdit = false) {
+    taskModal.classList.add('visible');
+    document.querySelector('#taskModal > div').style.transform = 'translateY(0)';
+    if (isEdit && selectedTaskDisplayIndex !== null) {
+        const task = getTasksForDate(selectedDateStr)[selectedTaskDisplayIndex];
+        if (task.isHoliday) { closeModal(); return; }
+        editingTaskId = task.userTaskIndex;
+        modalTitle.innerText = 'Edit Tugas';
+        taskInput.value = task.text;
+        taskDetailInput.value = task.detail || '';
+        btnSubmitTask.innerText = 'Simpan Perubahan';
+    } else {
+        editingTaskId = null;
+        modalTitle.innerText = 'Tambah Tugas Baru';
+        taskForm.reset();
+        btnSubmitTask.innerText = 'Tambahkan Tugas';
+    }
+    setTimeout(() => taskInput.focus(), 80);
+}
+
+function closeModal() {
+    taskModal.classList.remove('visible');
+    document.querySelector('#taskModal > div').style.transform = 'translateY(12px)';
+    editingTaskId = null;
+    taskForm.reset();
+}
+
+taskForm.onsubmit = (e) => {
+    e.preventDefault();
+    const text = taskInput.value.trim(), detail = taskDetailInput.value.trim();
+    if (!text) return;
+    if (editingTaskId !== null) {
+        tasks[selectedDateStr][editingTaskId].text = text;
+        tasks[selectedDateStr][editingTaskId].detail = detail;
+    } else {
+        if (!tasks[selectedDateStr]) tasks[selectedDateStr] = [];
+        tasks[selectedDateStr].unshift({ text, detail, status: 'upcoming', completed: false });
+        selectedTaskDisplayIndex = holidayMap[selectedDateStr] ? holidayMap[selectedDateStr].length : 0;
+    }
+    closeModal(); saveAndRefresh();
+};
+
+taskModal.addEventListener('click', e => { if (e.target === taskModal) closeModal(); });
+document.getElementById('confirmDeleteModal').addEventListener('click', e => { if (e.target === document.getElementById('confirmDeleteModal')) closeConfirmDeleteModal(); });
+document.addEventListener('click', e => { if (!jumpMenu.contains(e.target) && !e.target.closest('[onclick="toggleJumpMenu()"]')) jumpMenu.classList.remove('visible'); });
+
+// ─── Render all + save ───
+function renderAll() { renderTasks(); renderSummary(); renderCalendar(); }
+
+function saveAndRefresh() {
+    fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tasks) })
+        .catch(e => console.error('Gagal sinkronisasi:', e));
+    renderAll();
+}
+
+// ─── Clock ───
+setInterval(() => { document.getElementById('currentTime').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
+
+// ─── Boot ───
+initApp();
+</script>
+</body>
+</html>

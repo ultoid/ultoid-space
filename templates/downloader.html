@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dim">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultoid Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+        <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Pengaturan spesifik layout yang belum tercover di u-class */
+        body { 
+            background-color: var(--bg-base); 
+            color: var(--text-primary); 
+        }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-6 selection:bg-red-500 selection:text-white">
+    
+    <div class="max-w-3xl w-full">
+        <div class="flex items-center justify-between mb-8">
+            <a href="/space" class="text-sm text-gray-400 hover:text-white transition">&larr; Kembali ke Space</a>
+            <h1 class="text-2xl font-bold text-red-500">Ultoid Downloader</h1>
+        </div>
+
+        <div class="u-glass p-8 rounded-3xl shadow-2xl">
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Masukkan URL Video atau Playlist</label>
+                <input type="text" id="videoUrl" oninput="debouncePreview()" placeholder="https://www.youtube.com/watch?v=... atau &list=..." 
+                       class="u-input w-full px-4 py-3 text-white">
+            </div>
+
+            <div id="previewBox" class="hidden mb-6 bg-black/40 rounded-xl p-4 flex gap-4 items-center border border-white/10 shadow-inner">
+                <img id="previewThumb" src="" class="w-24 h-24 sm:w-32 sm:h-24 object-cover rounded-lg bg-gray-800 shadow-md">
+                <div class="flex-1 min-w-0">
+                    <h3 id="previewTitle" class="font-bold text-sm sm:text-base text-white truncate mb-1">Memuat informasi...</h3>
+                    <p id="previewDuration" class="text-xs text-red-400 font-medium">...</p>
+                </div>
+            </div>
+
+            <div id="playlistBox" class="hidden mb-6 bg-black/40 rounded-xl p-5 border border-white/10 shadow-inner">
+                <div class="flex justify-between items-end mb-4">
+                    <div class="min-w-0 flex-1 pr-4">
+                        <h3 class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">📂 Ditemukan Playlist</h3>
+                        <p id="playlistTitle" class="font-bold text-white truncate">Memuat Playlist...</p>
+                    </div>
+                    <button onclick="startDownload(null, true)" class="u-btn u-btn-primary py-2 px-4 rounded-lg transition text-sm whitespace-nowrap shadow-lg">
+                        Unduh Semua (Playlist)
+                    </button>
+                </div>
+                
+                <div id="playlistContainer" class="custom-scroll max-h-60 overflow-y-auto space-y-2 pr-2 border-t border-white/10 pt-3">
+                    </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-2">Pilih Format</label>
+                    <select id="downloadType" onchange="toggleResolution()" class="u-input w-full px-3 py-2.5 text-sm appearance-none">
+                        <option value="video" class="text-black">Video (MP4)</option>
+                        <option value="audio" class="text-black">Audio (MP3)</option>
+                    </select>
+                </div>
+                <div id="resContainer">
+                    <label class="block text-xs font-medium text-gray-500 mb-2">Resolusi Maksimal</label>
+                    <select id="videoRes" class="u-input w-full px-3 py-2.5 text-sm appearance-none">
+                        <option value="best" class="font-bold text-red-600 bg-white">Kualitas Max (4K+)</option>
+                        <option value="1080" class="text-black">1080p (Full HD)</option>
+                        <option value="720" selected class="text-black">720p (HD)</option>
+                        <option value="480" class="text-black">480p</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="startDownload()" id="btnDownload"
+                    class="u-btn u-btn-primary w-full py-3 rounded-xl transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                Mulai Download
+            </button>
+        </div>
+
+        <div id="progressBox" class="mt-6 u-glass p-6 rounded-3xl hidden">
+            <div id="statusText" class="text-sm text-gray-300 mb-4 font-mono truncate">Menunggu perintah...</div>
+            <div class="w-full bg-white/10 rounded-full h-2 mb-6">
+                <div id="progressBar" class="bg-red-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+
+            <div id="actionBox" class="hidden flex flex-col sm:flex-row gap-3">
+                <a id="btnDirectDownload" href="#" class="u-btn u-btn-primary flex-1 text-center py-2.5 rounded-xl transition text-sm shadow-lg">
+                    ⬇️ Unduh Langsung
+                </a>
+                <a href="/dashboard" class="u-btn u-btn-ghost flex-1 text-center py-2.5 rounded-xl transition text-sm">
+                    🗂️ Buka File Manager
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleResolution() {
+            const type = document.getElementById('downloadType').value;
+            const resContainer = document.getElementById('resContainer');
+            resContainer.style.opacity = (type === 'audio') ? '0.3' : '1';
+            document.getElementById('videoRes').disabled = (type === 'audio');
+        }
+
+        let previewTimeout = null;
+        function debouncePreview() {
+            clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(fetchPreview, 1000);
+        }
+
+        async function fetchPreview() {
+            const url = document.getElementById('videoUrl').value.trim();
+            const previewBox = document.getElementById('previewBox');
+            const playlistBox = document.getElementById('playlistBox');
+            const btnMain = document.getElementById('btnDownload');
+            
+            if (!url) {
+                previewBox.classList.add('hidden');
+                playlistBox.classList.add('hidden');
+                btnMain.classList.remove('hidden');
+                return;
+            }
+
+            // Reset UI State
+            previewBox.classList.remove('hidden');
+            playlistBox.classList.add('hidden');
+            btnMain.classList.remove('hidden');
+            document.getElementById('previewTitle').innerText = "🔍 Mencari informasi video...";
+            document.getElementById('previewThumb').src = "";
+            document.getElementById('previewDuration').innerText = "";
+
+            try {
+                const response = await fetch('/preview-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('previewTitle').innerText = "❌ Video/Playlist tidak valid";
+                } else if (data.type === 'playlist') {
+                    // TAMPILAN PLAYLIST
+                    previewBox.classList.add('hidden');
+                    btnMain.classList.add('hidden'); // Sembunyikan tombol utama agar user pakai tombol playlist
+                    playlistBox.classList.remove('hidden');
+                    
+                    document.getElementById('playlistTitle').innerText = `${data.title} (${data.entries.length} Video)`;
+                    
+                    const container = document.getElementById('playlistContainer');
+                    container.innerHTML = ""; // Bersihkan list sebelumnya
+                    
+                    data.entries.forEach((vid, index) => {
+                        container.innerHTML += `
+                            <div class="flex justify-between items-center bg-black/20 p-2.5 rounded-lg border border-white/5 hover:bg-black/40 transition">
+                                <span class="text-xs text-gray-300 truncate pr-4 flex-1">
+                                    <span class="text-red-500 font-bold mr-2">${index + 1}.</span>${vid.title}
+                                </span>
+                                <button onclick="startDownload('${vid.url}', false)" class="u-btn u-btn-ghost text-xs px-3 py-1.5 rounded-md transition whitespace-nowrap">
+                                    Unduh Ini
+                                </button>
+                            </div>
+                        `;
+                    });
+
+                } else {
+                    // TAMPILAN VIDEO TUNGGAL
+                    document.getElementById('previewTitle').innerText = data.title;
+                    document.getElementById('previewThumb').src = data.thumbnail;
+                    document.getElementById('previewDuration').innerText = "⏱️ Durasi: " + data.duration;
+                }
+            } catch (error) {
+                document.getElementById('previewTitle').innerText = "❌ Gagal memuat pratinjau";
+            }
+        }
+
+        // Fungsi Download: Bisa untuk Main Input, Spesifik Video di Playlist, atau Full Playlist
+        function startDownload(customUrl = null, isFullPlaylist = false) {
+            // Tentukan target URL
+            const url = customUrl || document.getElementById('videoUrl').value;
+            const type = document.getElementById('downloadType').value;
+            const res = document.getElementById('videoRes').value;
+            
+            if (!url) return alert("Masukkan URL dulu ya!");
+
+            // UI Elements
+            const btn = document.getElementById('btnDownload');
+            const progressBox = document.getElementById('progressBox');
+            const statusText = document.getElementById('statusText');
+            const progressBar = document.getElementById('progressBar');
+            const actionBox = document.getElementById('actionBox');
+
+            // Reset & Kunci UI
+            btn.disabled = true;
+            progressBox.classList.remove('hidden');
+            actionBox.classList.add('hidden');
+            
+            if (isFullPlaylist) {
+                statusText.innerHTML = "📦 Memulai antrean Playlist. Harap bersabar...";
+            } else {
+                statusText.innerText = "Membuka jalur server...";
+            }
+            
+            progressBar.style.width = "2%";
+
+            const eventSource = new EventSource(`/stream-download?url=${encodeURIComponent(url)}&type=${type}&res=${res}`);
+
+            eventSource.onmessage = function(event) {
+                if (event.data.startsWith("PROGRESS|")) {
+                    const parts = event.data.split("|");
+                    const percent = parts[1];
+                    const currentFile = parts[2] ? parts[2] : '';
+                    
+                    progressBar.style.width = percent + "%";
+                    if (isFullPlaylist && currentFile) {
+                        statusText.innerText = `Mengunduh: ${currentFile} (${percent}%)`;
+                    }
+                } 
+                else if (event.data.startsWith("DONE|")) {
+                    const status = event.data.split("|")[1];
+                    progressBar.style.width = "100%";
+                    actionBox.classList.remove('hidden');
+                    
+                    const directBtn = document.getElementById('btnDirectDownload');
+                    
+                    if (status === "PLAYLIST") {
+                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Playlist Selesai!</span> Semua video tersimpan.`;
+                        // Sembunyikan Direct Download karena file-nya banyak
+                        directBtn.classList.add('hidden'); 
+                    } else {
+                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Selesai!</span> Video berhasil diamankan.`;
+                        directBtn.classList.remove('hidden');
+                        directBtn.href = `/download_admin/${status}`;
+                    }
+
+                    btn.disabled = false;
+                    eventSource.close();
+                } 
+                else if (event.data.startsWith("ERROR|")) {
+                    statusText.innerHTML = `<span class="text-red-400">❌ Error:</span> ${event.data.split("|")[1]}`;
+                    btn.disabled = false;
+                    eventSource.close();
+                } 
+                else {
+                    // Update status text biasa (MSG|...)
+                    statusText.innerText = event.data;
+                }
+            };
+
+            eventSource.onerror = function() {
+                statusText.innerHTML = `<span class="text-yellow-400">⚠️ Proses berjalan di latar belakang. Cek File Manager nanti.</span>`;
+                eventSource.close();
+                btn.disabled = false;
+            };
+        }
+    </script>
+</body>
+</html>

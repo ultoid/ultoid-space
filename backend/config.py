@@ -1,0 +1,64 @@
+import os
+import secrets
+from dotenv import load_dotenv
+from google import genai
+
+load_dotenv()
+
+# Folder / file dasar
+UPLOAD_FOLDER = 'uploads'
+OUTPUT_FOLDER = 'static/file_manager/Translate'
+DATA_FOLDER = 'data'
+SECRET_KEY_FILE = os.path.join(DATA_FOLDER, '.secret_key')
+NOTES_FILE = os.path.join(DATA_FOLDER, 'notes.json')
+TASKS_FILE = os.path.join(DATA_FOLDER, 'tasks.json')
+CREDENTIALS_FILE = os.path.join(DATA_FOLDER, 'credentials.txt')
+FM_ROOT = 'static/file_manager'
+DEFAULT_FOLDERS = [
+    'Translate',
+    'Download',
+    'Wallpaper',
+    'Social Media Report/IG Report',
+    'Social Media Report/TT Report',
+    'Social Media Report/FB Report'
+]
+
+ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+
+IG_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'ig_accounts.json')
+TT_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'tt_accounts.json')
+FB_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'fb_accounts.json')
+GAMES_FILE = os.path.join(DATA_FOLDER, 'games.json')
+SETTINGS_FILE = 'settings.json'
+
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_SECONDS = 300
+
+API_KEY_GEMINI = os.environ.get('GEMINI_API_KEY')
+if not API_KEY_GEMINI:
+    API_KEY_GEMINI = 'API_KEY_TIDAK_DITEMUKAN'
+    print('PERINGATAN: GEMINI_API_KEY belum diset di environment variables!')
+
+client = genai.Client(api_key=API_KEY_GEMINI)
+
+
+def load_or_create_secret_key():
+    os.makedirs(DATA_FOLDER, exist_ok=True)
+    if os.path.exists(SECRET_KEY_FILE):
+        with open(SECRET_KEY_FILE, 'r', encoding='utf-8') as f:
+            key = f.read().strip()
+            if len(key) >= 32:
+                return key
+    key = secrets.token_hex(32)
+    with open(SECRET_KEY_FILE, 'w', encoding='utf-8') as f:
+        f.write(key)
+    return key
+
+
+def ensure_directories():
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    os.makedirs(DATA_FOLDER, exist_ok=True)
+    for folder in DEFAULT_FOLDERS:
+        os.makedirs(os.path.join(FM_ROOT, folder), exist_ok=True)
+

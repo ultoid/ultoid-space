@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FB Dashboard · Ultoid Space</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* ─── JEMBATAN VARIABEL (MAPPING KE TEMA ULTOID) ─── */
+        :root {
+            --bg:        var(--bg-base, #07090f);
+            --glass:     var(--glass-bg, rgba(255,255,255,0.04));
+            --border:    var(--glass-border, rgba(255,255,255,0.08));
+            --border-h:  var(--glass-hover, rgba(255,255,255,0.13));
+            --muted:     var(--text-muted, #64748b);
+            --dim:       var(--text-dim, #334155);
+            --text:      var(--text-primary, #f1f5f9);
+            --accent:    #3b82f6; /* FB Blue */
+            --accent2:   #60a5fa;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+        
+        /* FB Ambient Glow */
+        body::before { content:''; position:fixed; top:-20%; left:-10%; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%); pointer-events:none; z-index:0; }
+        body::after { content:''; position:fixed; bottom:-20%; right:-10%; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle, rgba(96,165,250,0.05) 0%, transparent 70%); pointer-events:none; z-index:0; }
+
+        .stat-card { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+        .stat-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+        .stat-value { font-size: 28px; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+        .table-wrap { overflow-x: auto; }
+        .table-wrap::-webkit-scrollbar { height: 4px; }
+        .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th { padding: 12px 16px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: rgba(0,0,0,0.2); white-space: nowrap; }
+        tbody tr { border-top: 1px solid var(--border); transition: background .15s; }
+        tbody tr:hover { background: rgba(255,255,255,0.02); }
+        tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
+
+        .badge-fb { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: #60a5fa; padding: 3px 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700; }
+        
+        .avatar { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); object-fit: cover; background: rgba(0,0,0,0.3); flex-shrink: 0; }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .9s linear infinite; }
+        .stripe-fb { height: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .fade-up { animation: fadeUp .4s ease both; }
+
+        main, nav { position: relative; z-index: 1; }
+    </style>
+</head>
+<body>
+
+<nav class="u-glass sticky top-0 z-50 px-5 py-3" style="border-radius: 0; border-top: none; border-left: none; border-right: none;">
+    <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-3">
+        <div class="flex items-center gap-3">
+            <a href="/space" class="u-btn u-btn-ghost text-xs py-1.5 px-3">🏠</a>
+            <div class="w-px h-5 bg-white/10"></div>
+            <a href="/socmed-dashboard" class="u-btn u-btn-ghost text-xs py-1.5 px-3">← Overview</a>
+            <div class="w-px h-5 bg-white/10"></div>
+            <span style="font-size:14px; font-weight:700; background: linear-gradient(90deg, #3b82f6, #60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">📘 FB Dashboard</span>
+        </div>
+        <div class="flex gap-2">
+            <input type="text" id="fbUsername" placeholder="Username / ID Dealer..." class="u-input w-44 sm:w-64 py-1.5" onkeydown="if(event.key==='Enter') scrapeAccount()">
+            <button onclick="scrapeAccount()" id="btnScrape" class="u-btn u-btn-primary py-1.5 text-xs text-center justify-center">Track</button>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-7 space-y-5">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 fade-up">
+        <div class="u-glass stat-card">
+            <div class="stat-label">Total Akun</div>
+            <div class="stat-value" id="statTotalAcc">—</div>
+        </div>
+        <div class="u-glass stat-card">
+            <div class="stat-label">Total Post Keseluruhan</div>
+            <div class="stat-value" id="statTotalPosts" style="color:#60a5fa">—</div>
+        </div>
+        <div class="u-glass stat-card" style="padding:15px;">
+            <button onclick="downloadCSVDirect()" class="u-btn text-center justify-center w-full" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(16,185,129,0.05); color: #34d399; border: 1px solid rgba(16,185,129,0.1);">
+                <span style="font-size: 24px; margin-bottom: 4px;">📥</span>
+                <span style="font-size: 11px; letter-spacing: 0.05em; font-weight: bold;">Ekspor Laporan .CSV</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="u-glass overflow-hidden fade-up" style="animation-delay:.08s">
+        <div class="stripe-fb"></div>
+
+        <div class="px-5 py-4 border-b border-white/[0.06] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" style="background: rgba(255,255,255,0.02);">
+            <div class="flex items-center gap-3">
+                <h2 style="font-size:14px; font-weight:700;">Database Pemantauan Dealer</h2>
+                <span style="font-size:10px; font-family:'DM Mono',monospace; color:var(--muted); background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:3px 10px; border-radius:20px;">Sync: <span id="lastUpdate">-</span></span>
+            </div>
+            <div class="flex gap-2 w-full sm:w-auto">
+                <a href="/fb-input" class="u-btn text-center justify-center flex-1 sm:flex-none text-xs" style="color: #fff; background: linear-gradient(135deg, #10b981, #059669); border:none;">✏️ Input Data Bulanan</a>
+                <button onclick="updateAllProfiles()" id="btnUpdateAll" class="u-btn u-btn-ghost flex-1 sm:flex-none text-xs text-center justify-center">🔄 Scrape Profil</button>
+            </div>
+        </div>
+
+        <div id="loadingState" class="hidden flex-col items-center justify-center py-12 border-b border-white/[0.06]">
+            <div class="spinner mb-3"></div>
+            <p id="loadingText" style="font-size:12px; color:#60a5fa; font-weight:600; letter-spacing:.05em;">Menghubungkan ke Facebook...</p>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:40px; text-align:center;">#</th>
+                        <th>Akun Dealer</th>
+                        <th style="text-align:right;">Followers</th>
+                        <th style="text-align:center;">Total Postingan <br><span style="font-size:9px; color:#60a5fa; text-transform:none;">(2025 + Histori 2026)</span></th>
+                        <th style="text-align:center; width:60px;">Hapus</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <p style="text-align:center; color:var(--dim); font-size:11px; font-weight:500; letter-spacing:0.02em;">*This analysis only takes into consideration data for the last 30 days.</p>
+</main>
+
+<script>
+    let dbAccounts = {};
+    document.addEventListener('DOMContentLoaded', loadDatabase);
+
+    async function loadDatabase() {
+        try {
+            const res = await fetch('/api/fb/accounts');
+            const data = await res.json();
+            dbAccounts = data.accounts || data;
+            document.getElementById('lastUpdate').innerText = data.last_updated || "-";
+            renderTable(); updateStats();
+        } catch(e) { console.error(e); }
+    }
+
+    function updateStats() {
+        const keys = Object.keys(dbAccounts);
+        let totalP = 0;
+        keys.forEach(k => { totalP += (dbAccounts[k].profile.total_posts || 0); });
+        document.getElementById('statTotalAcc').innerText = keys.length;
+        document.getElementById('statTotalPosts').innerText = totalP.toLocaleString('id-ID');
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('summaryTableBody');
+        const keys = Object.keys(dbAccounts).sort((a,b) => (dbAccounts[b].profile.total_posts || 0) - (dbAccounts[a].profile.total_posts || 0));
+        
+        if(keys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center; color:var(--dim);">Belum ada dealer yang dilacak.</td></tr>`; 
+            return;
+        }
+        
+        tbody.innerHTML = keys.map((k, index) => {
+            const acc = dbAccounts[k].profile;
+            let pic = acc.profile_pic || `https://ui-avatars.com/api/?name=${k}&background=random`;
+            if(pic.includes('fbcdn.net')) pic = `https://wsrv.nl/?url=${encodeURIComponent(pic)}&w=100&h=100&fit=cover`;
+            let parts = (acc.bio || '-').split('|');
+            
+            return `
+                <tr>
+                    <td style="text-align:center; color:var(--dim); font-family:'DM Mono',monospace; font-size:11px;">${index+1}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <img src="${pic}" class="avatar" alt="${k}">
+                            <div>
+                                <div style="font-weight:700; font-size:13px;">${acc.custom_name || parts[0].trim()}</div>
+                                <div style="font-size:11px; color:#60a5fa; margin-top:2px;">@${acc.username} <span style="font-size:9px; color:var(--muted); background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:2px 6px; border-radius:4px; margin-left:4px;">${parts[1] ? parts[1].trim() : 'Fanpage'}</span></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="text-align:right; font-family:'DM Mono',monospace; font-weight:700; color:var(--text);">
+                        ${typeof acc.followers === 'number' ? acc.followers.toLocaleString('id-ID') : acc.followers}
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="badge-fb">${(acc.total_posts || 0).toLocaleString('id-ID')}</span>
+                    </td>
+                    <td style="text-align:center;">
+                        <button onclick="deleteAccount('${k}')" style="color:var(--dim); background:none; border:none; cursor:pointer; font-size:15px; padding:4px 8px; border-radius:8px; transition:color .2s;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--dim)'">🗑</button>
+                    </td>
+                </tr>`;
+        }).join('');
+    }
+
+    async function scrapeAccount() {
+        const el = document.getElementById('fbUsername'); const user = el.value.trim(); if(!user) return;
+        setLoading(true, `Menelusuri profil @${user}...`);
+        try {
+            const res = await fetch('/api/scrape/fb', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: user}) });
+            const data = await res.json();
+            if(data.success) {
+                await fetch('/api/fb/accounts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                el.value = ''; await loadDatabase();
+            } else { alert("Gagal Scrape: " + data.error); }
+        } catch(e) { alert("Error koneksi."); }
+        setLoading(false);
+    }
+
+    async function updateAllProfiles() {
+        const keys = Object.keys(dbAccounts); if(keys.length === 0) return;
+        setLoading(true, "Memulai pembaruan massal...");
+        for(let i=0; i<keys.length; i++) {
+            document.getElementById('loadingText').innerText = `Scrape [${i+1}/${keys.length}]: @${keys[i]}...`;
+            try {
+                const res = await fetch('/api/scrape/fb', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: keys[i]}) });
+                const data = await res.json();
+                if(data.success) {
+                    await fetch('/api/fb/accounts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                }
+            } catch(e){}
+            await new Promise(r => setTimeout(r, 3000));
+        }
+        try { await fetch('/api/fb/auto_backup', {method: 'POST'}); } catch(e){}
+        setLoading(false); loadDatabase();
+    }
+
+    async function deleteAccount(username) {
+        if(!confirm(`Hapus ${username}?`)) return;
+        await fetch('/api/fb/accounts', { method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: username}) });
+        loadDatabase();
+    }
+
+    async function downloadCSVDirect() {
+        try {
+            const res = await fetch('/api/fb/auto_backup', {method: 'POST'});
+            const d = await res.json();
+            if(d.filename) alert(`Laporan Master sukses dicadangkan ke File Manager!\n📄 Nama file: ${d.filename}`);
+        } catch(e){ alert("Gagal mengekspor berkas."); }
+    }
+
+    function setLoading(show, text="") {
+        const el = document.getElementById('loadingState'); 
+        if(show) { el.classList.remove('hidden'); el.classList.add('flex'); document.getElementById('loadingText').innerText = text; }
+        else { el.classList.add('hidden'); el.classList.remove('flex'); }
+        document.getElementById('btnScrape').disabled = show;
+    }
+</script>
+</body>
+</html>
