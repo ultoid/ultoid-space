@@ -18,7 +18,7 @@
 
 ## 🛠️ Persyaratan Sistem
 
-Aplikasi ini menggunakan **Python 3.13.13 Portabel (Embed)** sehingga tidak memerlukan instalasi Python secara global di komputer. Library utama yang digunakan:
+Aplikasi ini menggunakan **Python 3.13+ (system or virtualenv)** sehingga tidak memerlukan instalasi Python secara global di komputer. Library utama yang digunakan:
 
 *   **Flask**: Untuk server web lokal.
 *   **PyMuPDF (fitz) & pymupdf4llm**: Untuk ekstraksi teks dari PDF ke Markdown.
@@ -50,3 +50,8 @@ ultoid_translate/
 ├── API_key.txt          # File rahasia API Key (Jangan di-upload ke GitHub!)
 ├── .gitignore           # Daftar file/folder yang diabaikan oleh Git
 └── README.md            # Dokumentasi proyek
+
+\nMinimal setup:
+1. python -m venv venv
+2. venv\\Scripts\\activate (Windows) atau source venv/bin/activate (Linux/mac)
+3. pip install -r requirements.txt

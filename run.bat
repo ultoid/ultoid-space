@@ -1,5 +1,12 @@
 @echo off
+chcp 65001 > nul
 echo Menyalakan Mesin Ultoid Translate...
+echo.
+echo [1/2] Installing required packages (instaloader + others)...
+python -m pip install instaloader beautifulsoup4 requests python-dotenv apscheduler openpyxl -q 
+echo ✅ Packages installed!
+echo.
+echo [2/2] Starting application...
 start http://127.0.0.1:5000
-.\python-3.13.13-embed-amd64\python.exe app.py
+python app.py
 pause
