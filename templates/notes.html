@@ -28,22 +28,22 @@
         }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-8 flex flex-col selection:bg-yellow-500 selection:text-black">
+<body class="min-h-screen flex flex-col selection:bg-yellow-500 selection:text-black">
 
-    <div class="max-w-[1400px] w-full mx-auto flex-1 flex flex-col">
-        
-        <div class="flex justify-between items-center mb-8">
-            <div>
-                <a href="/space" class="text-xs text-gray-400 hover:text-white transition flex items-center gap-2 mb-1">
-                    &larr; Kembali ke Space
-                </a>
-                <h1 class="text-2xl font-bold tracking-tight">Ultoid <span class="text-yellow-500">Notes</span></h1>
+    <nav class="u-glass sticky top-0 z-50 px-5 py-3" style="border-radius:0; border-top:none; border-left:none; border-right:none; background: rgba(7,9,15,0.7);">
+        <div class="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <a href="/space" title="Home" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-base">🤖</a>
+                <div class="w-px h-5 bg-white/10"></div>
+                <span class="text-sm font-semibold text-white/80 tracking-tight">Ultoid <span class="text-yellow-500">Notes</span></span>
             </div>
-            <div class="w-1/3 max-w-xs hidden sm:block">
-                <input type="text" id="searchNotes" oninput="filterNotes()" placeholder="Cari catatan..." 
-                       class="u-input w-full rounded-xl px-4 py-2 text-xs transition">
+            <div class="w-full sm:w-auto flex items-center justify-start sm:justify-end">
+                <input type="text" id="searchNotes" oninput="filterNotes()" placeholder="Cari catatan..." class="u-input w-full sm:w-64 rounded-xl px-4 py-2 text-xs transition">
             </div>
         </div>
+    </nav>
+
+    <main class="max-w-[1400px] w-full mx-auto flex-1 flex flex-col px-4 md:px-8 py-8">
 
         <div class="w-full max-w-lg mx-auto mb-10">
             <div class="u-glass rounded-2xl p-4 border border-white/10 shadow-xl focus-within:ring-2 focus-within:ring-yellow-500/50 transition duration-300">
@@ -66,8 +66,14 @@
 
                     <div class="flex justify-between items-center pt-2 border-t border-white/5">
                         <div class="flex gap-3 text-gray-400 text-xs">
-                            <button type="button" onclick="triggerCreateNewFlowchart()" class="hover:text-yellow-500 transition flex items-center gap-1">
-                                📊 <span class="font-medium">Buat Flowchart</span>
+                            <button type="button" onclick="triggerCreateNewFlowchart()" class="hover:text-yellow-500 transition flex items-center gap-1" title="Buat Flowchart">
+                                📊 <span class="font-medium hidden sm:inline">Flowchart</span>
+                            </button>
+                            <button type="button" onclick="document.getElementById('noteImageUploadTarget').value='new'; document.getElementById('noteImageUpload').click()" class="hover:text-yellow-500 transition flex items-center gap-1" title="Tambah Foto">
+                                📷 <span class="font-medium hidden sm:inline">Foto</span>
+                            </button>
+                            <button type="button" onclick="insertCheckboxToNote('noteContent')" class="hover:text-yellow-500 transition flex items-center gap-1" title="Tambah Checkbox">
+                                ☑️ <span class="font-medium hidden sm:inline">Checkbox</span>
                             </button>
                         </div>
                         <button type="submit" class="u-btn bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-1.5 px-4 rounded-lg text-xs transition border-none shadow-lg">
@@ -170,12 +176,11 @@
                     </div>
                 </div>
 
-            </div>
         </div>
-    </div>
+    </main>
 
     <div id="nodeDetailsModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="u-glass border border-white/10 p-6 rounded-3xl w-full max-w-md shadow-2xl flex flex-col gap-4 transform scale-95 transition-transform duration-300">
+        <div class="u-glass border border-white/10 p-6 rounded-3xl w-full max-w-md max-h-[90dvh] overflow-y-auto custom-scroll shadow-2xl flex flex-col gap-4 transform scale-95 transition-transform duration-300">
             <div class="flex justify-between items-center border-b border-white/5 pb-3">
                 <h3 class="text-sm font-bold text-yellow-500 tracking-wider uppercase">Konfigurasi Objek</h3>
                 <button onclick="closeNodeDetailsModal()" class="text-gray-400 hover:text-white">&times;</button>
@@ -200,7 +205,25 @@
             
             <div class="p-5 sm:p-6 md:p-8 flex flex-col gap-3 sm:gap-4 overflow-y-auto custom-scroll flex-1">
                 <input type="text" id="detailNoteTitle" placeholder="Judul Catatan" class="w-full bg-transparent font-bold text-lg sm:text-xl md:text-2xl focus:outline-none text-white placeholder-gray-500">
-                <textarea id="detailNoteContent" placeholder="Tulis catatan..." class="w-full bg-transparent text-xs sm:text-sm md:text-base focus:outline-none text-gray-200 placeholder-gray-500 resize-none custom-scroll min-h-[200px] sm:min-h-[300px] flex-1"></textarea>
+                
+                <div class="flex gap-4 border-b border-white/10 mb-2">
+                    <button id="tabPreview" onclick="switchDetailTab('preview')" class="text-xs font-bold px-4 py-2 border-b-2 border-yellow-500 text-yellow-500 transition">👁️ Preview</button>
+                    <button id="tabEdit" onclick="switchDetailTab('edit')" class="text-xs font-bold px-4 py-2 border-b-2 border-transparent text-gray-400 hover:text-white transition">✏️ Edit</button>
+                </div>
+                
+                <div id="detailNotePreview" class="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed flex-1"></div>
+                
+                <div id="detailNoteEditContainer" class="hidden flex-col gap-2 flex-1">
+                    <div class="flex gap-3 text-gray-400 text-xs mb-1">
+                        <button type="button" onclick="document.getElementById('noteImageUploadTarget').value='detail'; document.getElementById('noteImageUpload').click()" class="hover:text-yellow-500 transition flex items-center gap-1" title="Tambah Foto">
+                            📷 <span class="font-medium">Foto</span>
+                        </button>
+                        <button type="button" onclick="insertCheckboxToNote('detailNoteContent')" class="hover:text-yellow-500 transition flex items-center gap-1" title="Tambah Checkbox">
+                            ☑️ <span class="font-medium">Checkbox</span>
+                        </button>
+                    </div>
+                    <textarea id="detailNoteContent" placeholder="Tulis catatan..." class="w-full bg-transparent text-xs sm:text-sm md:text-base focus:outline-none text-gray-200 placeholder-gray-500 resize-none custom-scroll min-h-[200px] sm:min-h-[300px] flex-1"></textarea>
+                </div>
                 
                 <div id="detailFlowchartContainer" class="hidden flex-col gap-2 sm:gap-3 mt-2">
                     <div class="flex justify-between items-center border-t border-white/5 pt-3 sm:pt-4">
@@ -225,7 +248,7 @@
     </div>
 
     <div id="confirmDeleteModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
-        <div id="confirmDeleteContent" class="u-glass border border-white/10 p-6 rounded-3xl w-full max-w-sm shadow-2xl text-center transform scale-95 transition-all duration-300">
+        <div id="confirmDeleteContent" class="u-glass border border-white/10 p-6 rounded-3xl w-full max-w-sm max-h-[90dvh] overflow-y-auto custom-scroll shadow-2xl text-center transform scale-95 transition-all duration-300">
             <div class="text-4xl mb-3 drop-shadow-lg">🗑️</div>
             <h3 class="text-base font-bold text-white mb-2">Hapus Catatan</h3>
             <p class="text-xs text-gray-400 mb-6 leading-relaxed">
@@ -238,10 +261,182 @@
         </div>
     </div>
 
-    <div id="toastContainer" class="fixed top-5 right-5 z-[60] flex flex-col gap-3 pointer-events-none"></div>
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none items-end"></div>
 
+    <input type="file" id="noteImageUpload" accept="image/*" class="hidden" onchange="handleNoteImageUpload(event)">
+    <input type="hidden" id="noteImageUploadTarget" value="new">
 
     <script>
+        // ==========================================
+        // FITUR CHECKBOX & FOTO
+        // ==========================================
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[tag]));
+        }
+
+        function parseNoteContent(content, noteIndex, isDetail = false) {
+            if (!content) return '';
+            const lines = content.split('\n');
+            const toggleFunc = isDetail ? 'toggleDetailNoteCheckbox' : 'toggleNoteCheckbox';
+            return lines.map((line, lineIndex) => {
+                let parsedLine = escapeHTML(line);
+                
+                // Parse Image
+                const imgRegex = /\[IMAGE:(.*?)\]/g;
+                parsedLine = parsedLine.replace(imgRegex, '<img src="$1" class="w-full max-h-64 object-cover rounded-xl border border-white/10 my-2">');
+
+                // Parse Checkboxes
+                if (line.trim().startsWith('[ ] ')) {
+                    const text = escapeHTML(line.trim().substring(4));
+                    return `<span class="inline-flex items-start gap-2" onclick="event.stopPropagation()">
+                                <input type="checkbox" onchange="${toggleFunc}(${noteIndex}, ${lineIndex}, this.checked)" class="mt-1 w-4 h-4 text-yellow-500 rounded bg-slate-800 border-white/20 cursor-pointer">
+                                <span>${text}</span>
+                            </span>`;
+                } else if (line.trim().startsWith('[x] ') || line.trim().startsWith('[X] ')) {
+                    const text = escapeHTML(line.trim().substring(4));
+                    return `<span class="inline-flex items-start gap-2 opacity-70" onclick="event.stopPropagation()">
+                                <input type="checkbox" checked onchange="${toggleFunc}(${noteIndex}, ${lineIndex}, this.checked)" class="mt-1 w-4 h-4 text-yellow-500 rounded bg-slate-800 border-white/20 cursor-pointer">
+                                <span class="line-through text-gray-500">${text}</span>
+                            </span>`;
+                }
+                
+                return parsedLine;
+            }).join('\n');
+        }
+
+        window.toggleNoteCheckbox = function(noteIndex, lineIndex, isChecked) {
+            const note = notes[noteIndex];
+            if (!note) return;
+            let lines = note.content.split('\n');
+            let line = lines[lineIndex];
+            if (isChecked) {
+                line = line.replace(/^\[ \]/, '[x]');
+            } else {
+                line = line.replace(/^\[x\]/i, '[ ]');
+            }
+            lines[lineIndex] = line;
+            note.content = lines.join('\n');
+            saveNotesToServer();
+            renderNotes(document.getElementById('searchNotes').value.toLowerCase());
+        };
+
+        window.toggleDetailNoteCheckbox = function(noteIndex, lineIndex, isChecked) {
+            const detailTextarea = document.getElementById('detailNoteContent');
+            let lines = detailTextarea.value.split('\n');
+            let line = lines[lineIndex];
+            if (isChecked) {
+                line = line.replace(/^\[ \]/, '[x]');
+            } else {
+                line = line.replace(/^\[x\]/i, '[ ]');
+            }
+            lines[lineIndex] = line;
+            detailTextarea.value = lines.join('\n');
+            // Update preview and raw object immediately
+            notes[noteIndex].content = detailTextarea.value;
+            document.getElementById('detailNotePreview').innerHTML = parseNoteContent(detailTextarea.value, noteIndex, true);
+            saveNotesToServer();
+            renderNotes(document.getElementById('searchNotes').value.toLowerCase());
+        };
+
+        window.insertCheckboxToNote = function(targetId) {
+            const el = document.getElementById(targetId);
+            const start = el.selectionStart;
+            const text = el.value;
+            
+            // Check if cursor is at the beginning of a line
+            const isStartOfLine = start === 0 || text.charAt(start - 1) === '\n';
+            const insertText = isStartOfLine ? '[ ] ' : '\n[ ] ';
+            
+            el.value = text.substring(0, start) + insertText + text.substring(el.selectionEnd);
+            el.focus();
+            el.selectionStart = el.selectionEnd = start + insertText.length;
+            // auto-resize
+            el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px';
+            
+            if (targetId === 'detailNoteContent' && currentDetailNoteIndex !== null) {
+                notes[currentDetailNoteIndex].content = el.value;
+                document.getElementById('detailNotePreview').innerHTML = parseNoteContent(el.value, currentDetailNoteIndex, true);
+            }
+        };
+
+        window.handleNoteImageUpload = async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const target = document.getElementById('noteImageUploadTarget').value;
+            const targetId = target === 'detail' ? 'detailNoteContent' : 'noteContent';
+            
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            try {
+                showToast("Mengunggah gambar...", "info");
+                const res = await fetch('/api/notes/upload_image', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const el = document.getElementById(targetId);
+                    const start = el.selectionStart;
+                    const text = el.value;
+                    const isStartOfLine = start === 0 || text.charAt(start - 1) === '\n';
+                    const insertText = (isStartOfLine ? '' : '\n') + `[IMAGE:${data.url}]` + '\n';
+                    
+                    el.value = text.substring(0, start) + insertText + text.substring(el.selectionEnd);
+                    el.focus();
+                    el.selectionStart = el.selectionEnd = start + insertText.length;
+                    el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px';
+                    
+                    if (targetId === 'detailNoteContent' && currentDetailNoteIndex !== null) {
+                        notes[currentDetailNoteIndex].content = el.value;
+                        document.getElementById('detailNotePreview').innerHTML = parseNoteContent(el.value, currentDetailNoteIndex, true);
+                    }
+                    showToast("Gambar berhasil ditambahkan! 📷", "success");
+                } else {
+                    showToast(data.error || "Gagal mengunggah gambar", "error");
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("Terjadi kesalahan saat mengunggah", "error");
+            }
+            e.target.value = ''; // Reset file input
+        };
+
+        window.switchDetailTab = function(tab) {
+            const btnPreview = document.getElementById('tabPreview');
+            const btnEdit = document.getElementById('tabEdit');
+            const previewView = document.getElementById('detailNotePreview');
+            const editView = document.getElementById('detailNoteEditContainer');
+            
+            if (tab === 'preview') {
+                btnPreview.className = "text-xs font-bold px-4 py-2 border-b-2 border-yellow-500 text-yellow-500 transition";
+                btnEdit.className = "text-xs font-bold px-4 py-2 border-b-2 border-transparent text-gray-400 hover:text-white transition";
+                
+                // Update preview content based on textarea value
+                const content = document.getElementById('detailNoteContent').value;
+                previewView.innerHTML = parseNoteContent(content, currentDetailNoteIndex, true);
+                
+                previewView.classList.remove('hidden');
+                editView.classList.add('hidden');
+                editView.classList.remove('flex');
+            } else {
+                btnEdit.className = "text-xs font-bold px-4 py-2 border-b-2 border-yellow-500 text-yellow-500 transition";
+                btnPreview.className = "text-xs font-bold px-4 py-2 border-b-2 border-transparent text-gray-400 hover:text-white transition";
+                
+                previewView.classList.add('hidden');
+                editView.classList.remove('hidden');
+                editView.classList.add('flex');
+                
+                const detailTextarea = document.getElementById('detailNoteContent');
+                detailTextarea.style.height = 'auto'; 
+                detailTextarea.style.height = (detailTextarea.scrollHeight) + 'px'; 
+                detailTextarea.focus();
+            }
+        };
+
         // --- 1. INISIALISASI CLOUD DATABASE ---
         let notes = [];
         
@@ -287,26 +482,21 @@
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
-            // Menerapkan class u-glass secara dinamis di JS
-            toast.className = `u-glass p-4 rounded-2xl border flex items-center gap-3 shadow-2xl transition-all duration-300 transform translate-x-full opacity-0 pointer-events-auto min-w-[280px] max-w-sm`;
+            toast.className = `transition-all duration-500 transform translate-y-2 opacity-0 pointer-events-none`;
             
-            let icon = '✔️';
-            if (type === 'success') {
-                toast.classList.add('border-green-500/30', 'bg-green-950/20'); icon = '🟢';
-            } else if (type === 'error') {
-                toast.classList.add('border-red-500/30', 'bg-red-950/20'); icon = '🔴';
-            } else {
-                toast.classList.add('border-blue-500/30', 'bg-blue-950/20'); icon = '🔵';
-            }
+            let colorClass = 'text-gray-400';
+            if (type === 'success') colorClass = 'text-green-400';
+            else if (type === 'error') colorClass = 'text-red-400';
+            else if (type === 'info') colorClass = 'text-blue-400';
 
-            toast.innerHTML = `<span class="text-lg">${icon}</span><div class="flex-1"><p class="text-xs font-semibold text-white leading-relaxed">${message}</p></div>`;
+            toast.innerHTML = `<span class="text-xs font-medium italic ${colorClass}">${message}</span>`;
             container.appendChild(toast);
 
-            setTimeout(() => toast.classList.remove('translate-x-full', 'opacity-0'), 10);
+            setTimeout(() => toast.classList.remove('translate-y-4', 'opacity-0'), 10);
             setTimeout(() => {
-                toast.classList.add('translate-x-full', 'opacity-0');
+                toast.classList.add('translate-y-4', 'opacity-0');
                 setTimeout(() => toast.remove(), 300);
-            }, 4000);
+            }, 3000);
         }
 
         // ==========================================
@@ -738,7 +928,7 @@
                     <div onclick="openNoteDetail(${idx})" class="u-note-card u-glass rounded-2xl p-5 flex flex-col justify-between min-h-[140px] cursor-pointer">
                         <div>
                             ${note.title ? `<h3 class="font-bold text-sm text-yellow-500 mb-2 truncate">${note.title}</h3>` : ''}
-                            <p class="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed overflow-hidden max-h-[120px] pr-1 mb-1" style="display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical;">${note.content}</p>
+                            <div class="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed overflow-hidden max-h-[120px] pr-1 mb-1" style="display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical;">${parseNoteContent(note.content, idx, false)}</div>
                             ${flowchartAreaHtml}
                         </div>
                         <div class="flex justify-between items-center mt-4 pt-3 border-t border-white/5 text-[10px] text-gray-500 relative z-20">
@@ -835,6 +1025,9 @@
             detailTextarea.value = note.content || '';
             document.getElementById('detailNoteDate').innerText = `Diedit: ${note.date || 'Baru saja'}`;
             detailTextarea.style.height = 'auto'; 
+            
+            // Set default tab to Preview
+            switchDetailTab('preview');
             
             const flowchartContainer = document.getElementById('detailFlowchartContainer');
             if (note.flowchart) {

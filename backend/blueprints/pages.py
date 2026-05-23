@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, jsonify, request, send_from_directory, current_app
 from ..utils import login_required
-from ..config import NOTES_FILE, TASKS_FILE, OUTPUT_FOLDER, GAMES_FILE
+from ..config import NOTES_FILE, TASKS_FILE, OUTPUT_FOLDER, GAMES_FILE, NOTES_IMAGES_FOLDER
 import os
+import uuid
 import json
 
 pages_bp = Blueprint('pages', __name__)
@@ -123,3 +124,20 @@ def api_custom_games():
         with open(GAMES_FILE, 'r', encoding='utf-8') as f:
             return jsonify(json.load(f))
     return jsonify([])
+
+@pages_bp.route('/api/notes/upload_image', methods=['POST'])
+@login_required
+def upload_note_image():
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No image part'}), 400
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No selected file'}), 400
+    if file:
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'png'
+        filename = f"{uuid.uuid4().hex}.{ext}"
+        filepath = os.path.join(NOTES_IMAGES_FOLDER, filename)
+        file.save(filepath)
+        # return the absolute path starting with /static for frontend rendering
+        return jsonify({'success': True, 'url': f'/{NOTES_IMAGES_FOLDER}/{filename}'})
+    return jsonify({'success': False, 'error': 'Failed to upload'}), 500

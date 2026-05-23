@@ -14,6 +14,7 @@ NOTES_FILE = os.path.join(DATA_FOLDER, 'notes.json')
 TASKS_FILE = os.path.join(DATA_FOLDER, 'tasks.json')
 CREDENTIALS_FILE = os.path.join(DATA_FOLDER, 'credentials.txt')
 FM_ROOT = 'static/file_manager'
+NOTES_IMAGES_FOLDER = 'static/notes_images'
 DEFAULT_FOLDERS = [
     'Translate',
     'Download',
@@ -59,6 +60,7 @@ def ensure_directories():
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     os.makedirs(DATA_FOLDER, exist_ok=True)
+    os.makedirs(NOTES_IMAGES_FOLDER, exist_ok=True)
     for folder in DEFAULT_FOLDERS:
         os.makedirs(os.path.join(FM_ROOT, folder), exist_ok=True)
 
