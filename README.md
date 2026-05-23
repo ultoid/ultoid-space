@@ -8,7 +8,6 @@ Dirancang untuk membuat proses terjemahan novel, buku, atau dokumen panjang menj
 
 ![Python](https://img.shields.io/badge/Python-3.13+-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-Web%20App-black?style=for-the-badge&logo=flask&logoColor=white)
-![Vercel](https://img.shields.io/badge/Vercel-Ready-black?style=for-the-badge&logo=vercel&logoColor=white)
 
 </div>
 
@@ -26,7 +25,6 @@ Dirancang untuk membuat proses terjemahan novel, buku, atau dokumen panjang menj
 
 > **💡 Catatan Tambahan:**
 > - **Konfigurasi Aman**: Gunakan `.env` untuk menyimpan API key secara aman dan rahasia.
-> - **Cloud Ready**: Sudah dikonfigurasi untuk siap di-*deploy* ke platform seperti Vercel.
 
 ---
 
@@ -102,19 +100,6 @@ ultoid_space/
 
 ---
 
-## ☁️ Deployment ke Vercel
-
-Ultoid Space sangat mudah untuk dideploy ke cloud platform Vercel agar dapat diakses dari mana saja.
-
-1. **Upload ke GitHub**: Pastikan kode sumber aplikasi ini sudah di-push ke repository GitHub Anda.
-2. **Buat Project Vercel**: Login ke Vercel, buat *New Project*, dan import repository GitHub tersebut.
-3. **Konfigurasi Environment**: Di dashboard Vercel, atur *Environment Variables* berikut:
-   - `GEMINI_API_KEY`
-   - `RAPIDAPI_KEY` (Jika digunakan)
-4. **Deploy**: Klik Deploy! Vercel secara otomatis akan menggunakan `app.py` sebagai entrypoint serverless function.
-5. ⚠️ **Perhatian**: Pastikan file `.env` dan direktori lokal (`uploads`, `outputs`) tidak ikut ter-commit ke GitHub untuk menjaga keamanan.
-
----
 <div align="center">
   <i>Dibuat dengan ❤️ untuk Ultoid Space</i>
 </div>
