@@ -80,6 +80,21 @@ def socmed_dashboard():
     return render_template('socmed_dashboard.html')
 
 
+@pages_bp.route('/gmaps-analytic', endpoint='gmaps_analytic_page')
+@login_required
+def gmaps_analytic_page():
+    return render_template('gmaps_analytic.html')
+
+
+@pages_bp.route('/gmaps-analytic/detail', endpoint='gmaps_detail_page')
+@login_required
+def gmaps_detail_page():
+    # Pass business_id and name to template for display
+    business_id = request.args.get('id', '')
+    business_name = request.args.get('name', business_id)
+    return render_template('gmaps_detail.html', business_id=business_id, business_name=business_name)
+
+
 @pages_bp.route('/download_admin/<path:filename>', endpoint='download_admin')
 @login_required
 def download_admin(filename):

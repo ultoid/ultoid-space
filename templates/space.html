@@ -94,8 +94,13 @@
                 <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
             </div>
         </div>
-        <button onclick="openWallpaperModal()" title="Ubah Wallpaper" class="u-glass p-2 sm:p-2.5 rounded-full transition shadow-lg text-sm sm:text-base hover:border-[var(--glass-border-h)] cursor-pointer">
+        <button onclick="openWallpaperModal()" title="Ubah Wallpaper" class="u-glass p-2 sm:p-2.5 rounded-full transition shadow-lg text-sm sm:text-base hover:border-[var(--glass-border-h)] cursor-pointer flex items-center justify-center">
             🎨
+        </button>
+        <button onclick="openLogoutModal()" title="Logout" class="u-glass p-2 sm:p-2.5 rounded-full transition shadow-lg text-sm sm:text-base hover:border-red-500 hover:text-red-500 text-[var(--text-primary)] cursor-pointer flex items-center justify-center">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z"/><path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+            </svg>
         </button>
     </div>
 
@@ -148,6 +153,22 @@
                         <div class="col-span-full text-center text-xs text-[var(--text-muted)] py-4 italic">Memuat galeri...</div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="logoutModal" class="u-modal-overlay">
+        <div class="u-modal-box flex flex-col items-center text-center p-6 sm:p-8 max-w-sm w-full mx-4">
+            <div class="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-500">
+                <svg class="w-8 h-8" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z"/><path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold mb-2">Konfirmasi Logout</h3>
+            <p class="text-[var(--text-muted)] text-sm mb-6">Apakah Anda yakin ingin keluar dari Ultoid Space?</p>
+            <div class="flex gap-3 w-full">
+                <button onclick="closeLogoutModal()" class="u-btn u-btn-ghost flex-1 justify-center py-2.5">Batal</button>
+                <a href="/logout" class="u-btn bg-red-500 hover:bg-red-600 text-white border-none flex-1 justify-center py-2.5">Ya, Keluar</a>
             </div>
         </div>
     </div>
@@ -264,17 +285,28 @@
                 </a>
                 <a href="/socmed-dashboard" class="dock-item group">
                     <div class="dock-tooltip">Social Media Report</div>
-                    <div class="u-dock-icon border-[var(--color-ig)] text-[var(--color-ig)]">
+                    <div class="u-dock-icon">
                         <svg class="w-6 h-6 drop-shadow-sm" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                             <path d="M11 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h1V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7h1zM2 14h2v-3H2zm5 0h2V7H7zm5 0h2V2h-2z"/>
                         </svg>
                     </div>
                 </a>
-                <a href="/logout" class="dock-item group">
-                    <div class="dock-tooltip">Logout</div>
-                    <div class="u-dock-icon opacity-80 hover:opacity-100 text-[var(--color-ig)]">
+                <a href="/gmaps-analytic" class="dock-item group">
+                    <div class="dock-tooltip">Google Maps Analytic</div>
+                    <div class="u-dock-icon">
                         <svg class="w-6 h-6 drop-shadow-sm" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z"/><path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                            <path d="M8 0a5.53 5.53 0 0 0-5.5 5.5c0 3.86 4.93 10.05 5.17 10.34a.43.43 0 0 0 .66 0c.24-.29 5.17-6.48 5.17-10.34A5.53 5.53 0 0 0 8 0zm0 8.5A3 3 0 1 1 11 5.5 3 3 0 0 1 8 8.5z"/>
+                        </svg>
+                    </div>
+                </a>
+                <a href="/qrcode" class="dock-item group">
+                    <div class="dock-tooltip">QR Maker</div>
+                    <div class="u-dock-icon">
+                        <svg class="w-6 h-6 drop-shadow-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                            <path d="M14 14h.01M17 14h.01M20 14h.01M14 17h.01M17 17h.01M20 17h.01M14 20h.01M17 20h.01M20 20h.01"></path>
                         </svg>
                     </div>
                 </a>
@@ -306,6 +338,17 @@
                             <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
                         </svg>
                         <span id="dockTaskBadge" class="task-badge hidden">0</span>
+                    </div>
+                </a>
+                <a href="/qrcode" class="dock-item group">
+                    <div class="dock-tooltip">QR Maker</div>
+                    <div class="u-dock-icon">
+                        <svg class="w-6 h-6 drop-shadow-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                            <path d="M14 14h.01M17 14h.01M20 14h.01M14 17h.01M17 17h.01M20 17h.01M14 20h.01M17 20h.01M20 20h.01"></path>
+                        </svg>
                     </div>
                 </a>
                 <button onclick="openDrawer()" class="dock-item group focus:outline-none">
@@ -377,20 +420,31 @@
                     <span class="text-[10px] font-bold text-[var(--text-secondary)] tracking-wide">Download</span>
                 </a>
                 <a href="/socmed-dashboard" class="flex flex-col items-center gap-2 group transition-transform active:scale-95">
-                    <div class="w-14 h-14 rounded-2xl bg-[var(--glass-bg)] border border-[var(--color-ig)] shadow-lg flex items-center justify-center group-hover:bg-[var(--glass-bg-hover)] transition-all">
-                        <svg class="w-6 h-6 drop-shadow-sm text-[var(--color-ig)]" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <div class="w-14 h-14 rounded-2xl bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-lg flex items-center justify-center group-hover:bg-[var(--glass-bg-hover)] transition-all">
+                        <svg class="w-6 h-6 drop-shadow-sm text-[var(--text-primary)]" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                             <path d="M11 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h1V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7h1zM2 14h2v-3H2zm5 0h2V7H7zm5 0h2V2h-2z"/>
                         </svg>
                     </div>
                     <span class="text-[10px] font-bold text-[var(--text-secondary)] tracking-wide">Social Media</span>
                 </a>
-                <a href="/logout" class="flex flex-col items-center gap-2 group transition-transform active:scale-95">
+                <a href="/gmaps-analytic" class="flex flex-col items-center gap-2 group transition-transform active:scale-95">
                     <div class="w-14 h-14 rounded-2xl bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-lg flex items-center justify-center group-hover:bg-[var(--glass-bg-hover)] transition-all">
-                        <svg class="w-6 h-6 drop-shadow-sm opacity-80 hover:opacity-100 text-[var(--color-ig)]" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z"/><path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                        <svg class="w-6 h-6 drop-shadow-sm text-[var(--text-primary)]" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M8 0a5.53 5.53 0 0 0-5.5 5.5c0 3.86 4.93 10.05 5.17 10.34a.43.43 0 0 0 .66 0c.24-.29 5.17-6.48 5.17-10.34A5.53 5.53 0 0 0 8 0zm0 8.5A3 3 0 1 1 11 5.5 3 3 0 0 1 8 8.5z"/>
                         </svg>
                     </div>
-                    <span class="text-[10px] font-bold text-[var(--text-secondary)] tracking-wide">Logout</span>
+                    <span class="text-[10px] font-bold text-[var(--text-secondary)] tracking-wide">Maps Analytic</span>
+                </a>
+                <a href="/qrcode" class="flex flex-col items-center gap-2 group transition-transform active:scale-95">
+                    <div class="w-14 h-14 rounded-2xl bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-lg flex items-center justify-center group-hover:bg-[var(--glass-bg-hover)] transition-all">
+                        <svg class="w-6 h-6 drop-shadow-sm text-[var(--text-primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                            <path d="M14 14h.01M17 14h.01M20 14h.01M14 17h.01M17 17h.01M20 17h.01M14 20h.01M17 20h.01M20 20h.01"></path>
+                        </svg>
+                    </div>
+                    <span class="text-[10px] font-bold text-[var(--text-secondary)] tracking-wide">QR Maker</span>
                 </a>
             </div>
         </div>
@@ -509,6 +563,14 @@
         function closeWallpaperModal() { 
             const m = document.getElementById('wallpaperModal'); 
             m.classList.remove('visible'); 
+        }
+
+        function openLogoutModal() {
+            document.getElementById('logoutModal').classList.add('visible');
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').classList.remove('visible');
         }
 
         initWallpaper(); 

@@ -8,6 +8,7 @@ from .blueprints.file_manager import file_manager_bp
 from .blueprints.scraper import scraper_bp
 from .blueprints.wallpaper import wallpaper_bp
 from .blueprints.socmed import socmed_bp
+from .blueprints.qrcode import qrcode_bp
 from .cron import setup_scheduler
 
 
@@ -36,6 +37,7 @@ def create_app():
     app.register_blueprint(scraper_bp)
     app.register_blueprint(wallpaper_bp)
     app.register_blueprint(socmed_bp)
+    app.register_blueprint(qrcode_bp)
 
     @app.after_request
     def add_security_headers(response):

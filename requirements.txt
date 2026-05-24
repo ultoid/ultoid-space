@@ -12,3 +12,6 @@ langdetect
 apscheduler
 yt-dlp
 Pillow
+qrcode[pil]
+python-barcode
+apify-client

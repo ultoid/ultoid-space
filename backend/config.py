@@ -15,13 +15,17 @@ TASKS_FILE = os.path.join(DATA_FOLDER, 'tasks.json')
 CREDENTIALS_FILE = os.path.join(DATA_FOLDER, 'credentials.txt')
 FM_ROOT = 'static/file_manager'
 NOTES_IMAGES_FOLDER = 'static/notes_images'
+QRCODES_FILE = os.path.join(DATA_FOLDER, 'qrcodes.json')
+QRCODES_FOLDER = 'static/qrcodes'
+QRCODES_LOGOS_FOLDER = os.path.join(QRCODES_FOLDER, 'logos')
 DEFAULT_FOLDERS = [
     'Translate',
     'Download',
     'Wallpaper',
     'Social Media Report/IG Report',
     'Social Media Report/TT Report',
-    'Social Media Report/FB Report'
+    'Social Media Report/FB Report',
+    'Google Maps Report'
 ]
 
 ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
@@ -29,6 +33,8 @@ ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 IG_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'ig_accounts.json')
 TT_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'tt_accounts.json')
 FB_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'fb_accounts.json')
+GMAPS_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'gmaps_accounts.json')
+GMAPS_REVIEWS_FILE = os.path.join(DATA_FOLDER, 'gmaps_reviews.json')
 GAMES_FILE = os.path.join(DATA_FOLDER, 'games.json')
 SETTINGS_FILE = 'settings.json'
 
@@ -61,6 +67,8 @@ def ensure_directories():
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     os.makedirs(DATA_FOLDER, exist_ok=True)
     os.makedirs(NOTES_IMAGES_FOLDER, exist_ok=True)
+    os.makedirs(QRCODES_FOLDER, exist_ok=True)
+    os.makedirs(QRCODES_LOGOS_FOLDER, exist_ok=True)
     for folder in DEFAULT_FOLDERS:
         os.makedirs(os.path.join(FM_ROOT, folder), exist_ok=True)
 

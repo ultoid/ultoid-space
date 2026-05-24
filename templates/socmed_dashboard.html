@@ -270,9 +270,68 @@
 
     <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-5">
 
-        <div id="loadingState" class="flex flex-col items-center justify-center py-24 gap-4">
-            <div class="spinner"></div>
-            <p style="font-size:11px; font-weight:600; letter-spacing:0.12em; color:var(--text-muted); text-transform:uppercase;">Memuat data…</p>
+        <div id="loadingState" class="flex flex-col gap-5 w-full">
+            <!-- Skeleton Card 1 -->
+            <div class="u-glass overflow-hidden animate-pulse">
+                <div class="h-0.5 w-full bg-gray-700/20"></div>
+                <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-7 h-7 rounded-full bg-gray-700/30"></div>
+                        <div class="space-y-2">
+                            <div class="h-4 w-24 bg-gray-700/30 rounded"></div>
+                            <div class="h-3 w-32 bg-gray-700/20 rounded"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-32 h-8 bg-gray-700/30 rounded-lg"></div>
+                        <div class="w-16 h-8 bg-gray-700/30 rounded-lg"></div>
+                    </div>
+                </div>
+                <div class="px-4 pb-5">
+                    <div class="w-full h-[420px] bg-gray-700/10 rounded-lg"></div>
+                </div>
+            </div>
+            
+            <!-- Skeleton Card 2 -->
+            <div class="u-glass overflow-hidden animate-pulse">
+                <div class="h-0.5 w-full bg-gray-700/20"></div>
+                <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-7 h-7 rounded-full bg-gray-700/30"></div>
+                        <div class="space-y-2">
+                            <div class="h-4 w-24 bg-gray-700/30 rounded"></div>
+                            <div class="h-3 w-32 bg-gray-700/20 rounded"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-32 h-8 bg-gray-700/30 rounded-lg"></div>
+                        <div class="w-16 h-8 bg-gray-700/30 rounded-lg"></div>
+                    </div>
+                </div>
+                <div class="px-4 pb-5">
+                    <div class="w-full h-[420px] bg-gray-700/10 rounded-lg"></div>
+                </div>
+            </div>
+            
+            <!-- Skeleton Card 3 -->
+            <div class="u-glass overflow-hidden animate-pulse">
+                <div class="h-0.5 w-full bg-gray-700/20"></div>
+                <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-7 h-7 rounded-full bg-gray-700/30"></div>
+                        <div class="space-y-2">
+                            <div class="h-4 w-24 bg-gray-700/30 rounded"></div>
+                            <div class="h-3 w-32 bg-gray-700/20 rounded"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-16 h-8 bg-gray-700/30 rounded-lg"></div>
+                    </div>
+                </div>
+                <div class="px-4 pb-5">
+                    <div class="w-full h-[420px] bg-gray-700/10 rounded-lg"></div>
+                </div>
+            </div>
         </div>
 
         <div id="chartContainer" class="hidden flex flex-col gap-5">
@@ -659,17 +718,17 @@
                 return new Promise(resolve => {
                     const img = new Image();
                     let safeUrl = url;
-                    const dealerName = platformData.names[index] || (platformData.labels[index] ? platformData.labels[index].replace('@', '') : 'User');
+                    const accountName = platformData.names[index] || (platformData.labels[index] ? platformData.labels[index].replace('@', '') : 'User');
                     if (safeUrl && safeUrl.length > 5 && (safeUrl.includes('cdninstagram.com') || safeUrl.includes('fbcdn.net') || safeUrl.includes('tiktokcdn'))) {
                         safeUrl = `https://wsrv.nl/?url=${encodeURIComponent(safeUrl)}&w=48&h=48&fit=cover&mask=circle`;
                         img.crossOrigin = "Anonymous";
                     } else {
-                        safeUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(dealerName)}&background=random&color=fff&rounded=true&bold=true`;
+                        safeUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(accountName)}&background=random&color=fff&rounded=true&bold=true`;
                     }
                     img.onload = () => resolve(img);
                     img.onerror = () => {
                         img.removeAttribute("crossOrigin");
-                        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(dealerName)}&background=random&color=fff&rounded=true&bold=true`;
+                        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(accountName)}&background=random&color=fff&rounded=true&bold=true`;
                         setTimeout(() => resolve(img), 300);
                     };
                     img.src = safeUrl;

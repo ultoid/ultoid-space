@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dim">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code & Barcode Maker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: var(--bg-base); 
+            color: var(--text-primary); 
+        }
+        .color-picker {
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            height: 40px;
+            cursor: pointer;
+        }
+        .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+        .color-picker::-webkit-color-swatch { border: none; border-radius: 8px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-purple-500 selection:text-white">
+
+    <nav class="u-glass sticky top-0 z-50 w-full px-5 py-3" style="border-radius:0; border-top:none; border-left:none; border-right:none; background: rgba(7,9,15,0.7);">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <a href="/space" title="Home" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-base">🤖</a>
+                <div class="w-px h-5 bg-white/10"></div>
+                <span class="text-sm font-semibold text-white/80 tracking-tight">Ultoid <span class="text-purple-500">QR Maker</span></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex flex-col items-center p-6 w-full gap-8">
+        <!-- Generator Form -->
+        <div class="w-full max-w-3xl">
+            <div class="u-glass p-8 rounded-3xl shadow-2xl">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2"><span class="text-2xl">✨</span> Buat Baru</h2>
+                
+                <form id="qrForm" onsubmit="generateItem(event)">
+                    <input type="hidden" id="editId" value="">
+                    
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Tipe</label>
+                        <select id="itemType" class="u-input w-full px-4 py-3 text-white appearance-none" onchange="toggleLogoInput()">
+                            <option value="qrcode" class="text-black">QR Code</option>
+                            <option value="barcode" class="text-black">Barcode</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Link atau Teks</label>
+                        <input type="text" id="itemText" placeholder="Masukkan link atau teks..." required
+                               class="u-input w-full px-4 py-3 text-white">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Warna Utama</label>
+                            <input type="color" id="itemColor" value="#000000" class="color-picker">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Warna Background</label>
+                            <input type="color" id="itemBgColor" value="#ffffff" class="color-picker">
+                        </div>
+                    </div>
+
+                    <div id="logoContainer" class="mb-6">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Tambahkan Logo (Opsional)</label>
+                        <input type="file" id="itemLogo" accept="image/*" class="u-input w-full px-4 py-2 text-white text-sm">
+                        <div class="mt-2 flex items-center gap-2 hidden" id="currentLogoBox">
+                            <span class="text-xs text-green-400">Logo tersimpan</span>
+                            <button type="button" onclick="removeLogo()" class="text-xs text-red-400 hover:underline">Hapus Logo</button>
+                            <input type="hidden" id="removeLogoFlag" value="false">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="submit" id="btnSubmit" class="u-btn u-btn-primary flex-1 py-3 rounded-xl transition shadow-lg font-bold">
+                            Generate
+                        </button>
+                        <button type="button" id="btnCancelEdit" onclick="cancelEdit()" class="u-btn u-btn-ghost py-3 px-6 rounded-xl transition hidden">
+                            Batal Edit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Gallery -->
+        <div class="w-full max-w-5xl">
+            <h2 class="text-lg font-bold mb-4 text-white/80 border-b border-white/10 pb-2">Galeri Anda</h2>
+            <div id="galleryContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Items will be injected here -->
+                <div class="col-span-full text-center text-gray-400 py-10">Memuat galeri...</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function toggleLogoInput() {
+            const type = document.getElementById('itemType').value;
+            const logoContainer = document.getElementById('logoContainer');
+            if (type === 'qrcode') {
+                logoContainer.style.display = 'block';
+            } else {
+                logoContainer.style.display = 'none';
+            }
+        }
+
+        function removeLogo() {
+            document.getElementById('removeLogoFlag').value = 'true';
+            document.getElementById('currentLogoBox').classList.add('hidden');
+        }
+
+        function cancelEdit() {
+            document.getElementById('editId').value = '';
+            document.getElementById('qrForm').reset();
+            document.getElementById('itemColor').value = '#000000';
+            document.getElementById('itemBgColor').value = '#ffffff';
+            document.getElementById('btnSubmit').innerText = 'Generate';
+            document.getElementById('btnCancelEdit').classList.add('hidden');
+            document.getElementById('currentLogoBox').classList.add('hidden');
+            document.getElementById('removeLogoFlag').value = 'false';
+            toggleLogoInput();
+        }
+
+        async function loadGallery() {
+            const container = document.getElementById('galleryContainer');
+            try {
+                const res = await fetch('/api/qrcode/list');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10 bg-black/20 rounded-2xl border border-white/5">Belum ada QR Code atau Barcode yang dibuat.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                data.forEach(item => {
+                    const date = new Date(item.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
+                    const card = document.createElement('div');
+                    card.className = 'u-glass p-4 rounded-2xl shadow-lg border border-white/10 flex flex-col items-center group relative overflow-hidden';
+                    
+                    const itemData = JSON.stringify(item).replace(/"/g, '&quot;');
+                    
+                    card.innerHTML = `
+                        <div class="w-full bg-white rounded-xl p-4 flex items-center justify-center mb-4 min-h-[200px]">
+                            <img src="/${item.image_path}?t=${Date.now()}" alt="${item.type}" class="max-w-full max-h-48 object-contain drop-shadow-md">
+                        </div>
+                        <div class="w-full">
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="text-xs font-bold uppercase tracking-wider text-purple-400">${item.type}</span>
+                                <span class="text-[10px] text-gray-500">${date}</span>
+                            </div>
+                            <p class="text-sm font-medium text-white truncate w-full mb-4" title="${item.text}">${item.text}</p>
+                            
+                            <div class="flex gap-2 w-full">
+                                <a href="/${item.image_path}" download="${item.type}_${item.id}.png" class="flex-1 u-btn bg-purple-600 hover:bg-purple-500 text-white text-xs py-2 rounded-lg text-center transition shadow-md">
+                                    Unduh
+                                </a>
+                                <button onclick="editItem('${itemData}')" class="u-btn u-btn-ghost flex-none w-10 text-xs py-2 rounded-lg transition" title="Edit">
+                                    ✏️
+                                </button>
+                                <button onclick="deleteItem('${item.id}')" class="u-btn bg-red-500/20 hover:bg-red-500/40 text-red-400 flex-none w-10 text-xs py-2 rounded-lg transition" title="Hapus">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (e) {
+                container.innerHTML = '<div class="col-span-full text-center text-red-400 py-10">Gagal memuat galeri.</div>';
+            }
+        }
+
+        function editItem(itemStr) {
+            const item = JSON.parse(itemStr);
+            document.getElementById('editId').value = item.id;
+            document.getElementById('itemType').value = item.type;
+            document.getElementById('itemText').value = item.text;
+            document.getElementById('itemColor').value = item.color;
+            document.getElementById('itemBgColor').value = item.bg_color;
+            
+            document.getElementById('btnSubmit').innerText = 'Simpan Perubahan';
+            document.getElementById('btnCancelEdit').classList.remove('hidden');
+            
+            toggleLogoInput();
+            
+            document.getElementById('removeLogoFlag').value = 'false';
+            if (item.logo_path) {
+                document.getElementById('currentLogoBox').classList.remove('hidden');
+            } else {
+                document.getElementById('currentLogoBox').classList.add('hidden');
+            }
+            
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        async function deleteItem(id) {
+            if(!confirm('Apakah Anda yakin ingin menghapus item ini?')) return;
+            
+            try {
+                const res = await fetch('/api/qrcode/' + id, { method: 'DELETE' });
+                if (res.ok) {
+                    loadGallery();
+                } else {
+                    alert('Gagal menghapus item.');
+                }
+            } catch(e) {
+                alert('Terjadi kesalahan koneksi.');
+            }
+        }
+
+        async function generateItem(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('btnSubmit');
+            const originalText = btn.innerText;
+            btn.innerText = 'Memproses...';
+            btn.disabled = true;
+
+            const editId = document.getElementById('editId').value;
+            const formData = new FormData();
+            formData.append('type', document.getElementById('itemType').value);
+            formData.append('text', document.getElementById('itemText').value);
+            formData.append('color', document.getElementById('itemColor').value);
+            formData.append('bg_color', document.getElementById('itemBgColor').value);
+            formData.append('remove_logo', document.getElementById('removeLogoFlag').value);
+            
+            const logoFile = document.getElementById('itemLogo').files[0];
+            if (logoFile) {
+                formData.append('logo', logoFile);
+            }
+
+            const url = editId ? `/api/qrcode/edit/${editId}` : '/api/qrcode/generate';
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    cancelEdit();
+                    loadGallery();
+                } else {
+                    const data = await res.json();
+                    alert('Error: ' + (data.error || 'Gagal memproses'));
+                }
+            } catch (err) {
+                alert('Terjadi kesalahan koneksi.');
+            }
+
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            toggleLogoInput();
+            loadGallery();
+        });
+    </script>
+</body>
+</html>

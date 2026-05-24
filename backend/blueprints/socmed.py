@@ -6,8 +6,9 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 import requests
 from bs4 import BeautifulSoup
+from apify_client import ApifyClient
 from ..utils import login_required
-from ..config import IG_ACCOUNTS_FILE, TT_ACCOUNTS_FILE, FB_ACCOUNTS_FILE
+from ..config import IG_ACCOUNTS_FILE, TT_ACCOUNTS_FILE, FB_ACCOUNTS_FILE, GMAPS_ACCOUNTS_FILE, GMAPS_REVIEWS_FILE
 
 socmed_bp = Blueprint('socmed', __name__)
 
@@ -86,8 +87,10 @@ def api_scrape_ig():
                     },
                     'posts': []
                 })
-    except Exception:
-        pass
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"RapidAPI failed: {e}")
     try:
         followers_num = 0
         posts_num = 0
@@ -575,3 +578,582 @@ def api_socmed_stats():
     tt_data, tt_updated = process_accounts(TT_ACCOUNTS_FILE)
     fb_data, fb_updated = process_accounts(FB_ACCOUNTS_FILE)
     return jsonify({'instagram': {**ig_data, 'last_updated': ig_updated}, 'tiktok': {**tt_data, 'last_updated': tt_updated}, 'facebook': {**fb_data, 'last_updated': fb_updated}})
+
+
+@socmed_bp.route('/api/gmaps/accounts', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def manage_gmaps_accounts():
+    accounts = load_json_file(GMAPS_ACCOUNTS_FILE)
+    if request.method == 'GET':
+        last_updated = '-'
+        if os.path.exists(GMAPS_ACCOUNTS_FILE):
+            last_updated = datetime.fromtimestamp(os.path.getmtime(GMAPS_ACCOUNTS_FILE)).strftime('%d %b %Y, %H:%M:%S')
+        
+        month_filter = request.args.get('month')
+        if month_filter:
+            reviews_db = load_json_file(GMAPS_REVIEWS_FILE)
+            for b_id, acc in accounts.items():
+                prof = acc.get('profile', {}) if isinstance(acc, dict) else {}
+                b_reviews = reviews_db.get(b_id, [])
+                
+                # Reset metrics
+                m_reviews = 0
+                m_stars = {1:0, 2:0, 3:0, 4:0, 5:0}
+                
+                for r in b_reviews:
+                    if r.get('date', '').startswith(month_filter):
+                        m_reviews += 1
+                        rtg = int(r.get('rating', 0))
+                        if rtg in m_stars:
+                            m_stars[rtg] += 1
+                
+                prof['reviews'] = m_reviews
+                prof['star_1'] = m_stars[1]
+                prof['star_2'] = m_stars[2]
+                prof['star_3'] = m_stars[3]
+                prof['star_4'] = m_stars[4]
+                prof['star_5'] = m_stars[5]
+                # Note: We leave rating as is (overall rating)
+        
+        return jsonify({'accounts': accounts, 'last_updated': last_updated})
+    if request.method == 'POST':
+        data = request.json
+        key_id = data.get('profile', {}).get('business_id')
+        if key_id:
+            accounts[key_id] = data
+            save_json_file(GMAPS_ACCOUNTS_FILE, accounts)
+        return jsonify({'success': True})
+    key_id = request.json.get('business_id')
+    if key_id in accounts:
+        accounts.pop(key_id, None)
+        save_json_file(GMAPS_ACCOUNTS_FILE, accounts)
+        
+        # Juga hapus dari reviews
+        reviews_data = load_json_file(GMAPS_REVIEWS_FILE)
+        if key_id in reviews_data:
+            reviews_data.pop(key_id, None)
+            save_json_file(GMAPS_REVIEWS_FILE, reviews_data)
+            
+    return jsonify({'success': True})
+
+import threading
+import time
+
+MASS_UPDATE_STATUS = {
+    'running': False,
+    'progress': 0,
+    'total': 0,
+    'message': '',
+    'log': ''
+}
+
+def bg_mass_update_gmaps():
+    global MASS_UPDATE_STATUS
+    MASS_UPDATE_STATUS['running'] = True
+    MASS_UPDATE_STATUS['message'] = 'Memulai proses...'
+    
+    try:
+        accounts = load_json_file(GMAPS_ACCOUNTS_FILE)
+        if not accounts:
+            MASS_UPDATE_STATUS['message'] = 'Database kosong.'
+            return
+            
+        apify_token = os.environ.get('APIFY_TOKEN', '')
+        if not apify_token:
+            MASS_UPDATE_STATUS['message'] = 'APIFY_TOKEN tidak ditemukan di .env'
+            return
+            
+        bids = list(accounts.keys())
+        MASS_UPDATE_STATUS['total'] = len(bids)
+        MASS_UPDATE_STATUS['progress'] = 0
+        
+        MASS_UPDATE_STATUS['message'] = 'Menarik data profil massal via Apify...'
+        
+        start_urls = []
+        for bid in bids:
+            prof = accounts[bid].get('profile', {})
+            link = prof.get('link')
+            
+            if link and link.startswith('http'):
+                start_urls.append({"url": link})
+            elif bid.startswith('ChIJ'):
+                start_urls.append({"url": f"https://www.google.com/maps/place/?q=place_id:{bid}"})
+            else:
+                query = prof.get('name', bid)
+                start_urls.append({"url": f"https://www.google.com/maps/search/?api=1&query={query}"})
+            
+        try:
+            client = ApifyClient(apify_token)
+            run_input = {
+                "startUrls": start_urls,
+                "maxCrawledPlacesPerSearch": 1,
+                "maxReviews": 0,
+                "maxImages": 0,
+                "language": "id"
+            }
+            
+            run_info = client.actor("compass/crawler-google-places").start(run_input=run_input)
+            run_id = run_info.get('id') if isinstance(run_info, dict) else getattr(run_info, 'id', None)
+            
+            MASS_UPDATE_STATUS['message'] = 'Menunggu Apify...'
+            MASS_UPDATE_STATUS['log'] = 'Memulai container Apify...\n'
+            
+            import time
+            while True:
+                info = client.run(run_id).get()
+                status = info.get('status') if isinstance(info, dict) else getattr(info, 'status', None)
+                
+                try:
+                    log_bytes = client.run(run_id).log().get()
+                    if log_bytes:
+                        log_str = log_bytes.decode('utf-8') if isinstance(log_bytes, bytes) else str(log_bytes)
+                        lines = log_str.strip().split('\n')
+                        MASS_UPDATE_STATUS['log'] = '\n'.join(lines[-10:])
+                except:
+                    pass
+                    
+                if status in ['SUCCEEDED', 'FAILED', 'ABORTED']:
+                    if status != 'SUCCEEDED':
+                        MASS_UPDATE_STATUS['message'] = f'Apify Error: {status}'
+                        MASS_UPDATE_STATUS['running'] = False
+                        return
+                    break
+                time.sleep(3)
+                
+            MASS_UPDATE_STATUS['log'] += 'Proses Apify selesai. Mengekstrak data...\n'
+            dataset_id = getattr(info, 'default_dataset_id', None) or (info.get('defaultDatasetId') if isinstance(info, dict) else None)
+            dataset_items = list(client.dataset(dataset_id).iterate_items())
+            
+            # Map results to accounts
+            for idx, d in enumerate(dataset_items):
+                MASS_UPDATE_STATUS['progress'] = idx + 1
+                title = d.get('title', '').lower()
+                
+                # Cari akun yang cocok dengan hasil Apify
+                for bid, acc in accounts.items():
+                    prof = acc.get('profile', {})
+                    acc_name = prof.get('name', bid).lower()
+                    
+                    if acc_name in title or title in acc_name:
+                        prof['rating'] = float(d.get('totalScore', prof.get('rating', 0.0)))
+                        prof['reviews'] = int(d.get('reviewsCount', prof.get('reviews', 0)))
+                        
+                        loc = d.get('location', {})
+                        if loc:
+                            prof['latitude'] = loc.get('lat', prof.get('latitude', '-'))
+                            prof['longitude'] = loc.get('lng', prof.get('longitude', '-'))
+                            
+                        # Update accounts
+                        accounts[bid]['profile'] = prof
+                        break
+                        
+            save_json_file(GMAPS_ACCOUNTS_FILE, accounts)
+            MASS_UPDATE_STATUS['message'] = 'Selesai'
+            
+        except Exception as e:
+            MASS_UPDATE_STATUS['message'] = f'Error API: {str(e)}'
+        
+    except Exception as e:
+        MASS_UPDATE_STATUS['message'] = f'Error: {str(e)}'
+        
+    finally:
+        MASS_UPDATE_STATUS['running'] = False
+
+
+@socmed_bp.route('/api/gmaps/mass_update', methods=['POST'])
+@login_required
+def api_gmaps_mass_update():
+    global MASS_UPDATE_STATUS
+    if MASS_UPDATE_STATUS['running']:
+        return jsonify({'success': False, 'error': 'Proses update masih berjalan'})
+        
+    thread = threading.Thread(target=bg_mass_update_gmaps)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'success': True, 'message': 'Update massal dimulai'})
+
+@socmed_bp.route('/api/gmaps/mass_update/status', methods=['GET'])
+@login_required
+def api_gmaps_mass_update_status():
+    return jsonify(MASS_UPDATE_STATUS)
+
+GRAB_REVIEWS_STATUS = {
+    'running': False,
+    'progress': 0,
+    'total': 0,
+    'message': '',
+    'log': ''
+}
+
+def bg_grab_reviews(business_id):
+    global GRAB_REVIEWS_STATUS
+    GRAB_REVIEWS_STATUS['running'] = True
+    GRAB_REVIEWS_STATUS['message'] = 'Memulai proses...'
+    GRAB_REVIEWS_STATUS['progress'] = 0
+    GRAB_REVIEWS_STATUS['total'] = 0
+    
+    try:
+        accounts = load_json_file(GMAPS_ACCOUNTS_FILE)
+        if business_id not in accounts:
+            GRAB_REVIEWS_STATUS['message'] = 'Bisnis tidak ditemukan di database.'
+            return
+            
+        reviews_db = load_json_file(GMAPS_REVIEWS_FILE)
+        business_reviews = reviews_db.get(business_id, [])
+        
+        def _clean(t):
+            if not t: return ""
+            return "".join(c for c in str(t).lower() if c.isalnum())
+            
+        existing_ids = set()
+        existing_sigs = set()
+        for r in business_reviews:
+            r_id = r.get('review_id')
+            if r_id:
+                existing_ids.add(r_id)
+            sig = f"{_clean(r.get('reviewer'))}||{_clean(r.get('text'))}"
+            existing_sigs.add(sig)
+        
+        apify_token = os.environ.get('APIFY_TOKEN', '')
+        if not apify_token:
+            GRAB_REVIEWS_STATUS['message'] = 'APIFY_TOKEN tidak ditemukan di .env'
+            return
+            
+        prof = accounts[business_id].get('profile', {})
+        
+        # Hitung dynamic maxReviews
+        google_total = int(prof.get('reviews', 0))
+        db_total = len(business_reviews)
+        expected_new = max(0, google_total - db_total)
+        max_reviews = max(50, expected_new + 20) # Minimal 50, buffer 20
+        
+        GRAB_REVIEWS_STATUS['message'] = f'Menarik ulasan via Apify (Max: {max_reviews})...'
+        
+        new_reviews = []
+        try:
+            client = ApifyClient(apify_token)
+            run_input = {
+                "startUrls": [{"url": f"https://www.google.com/maps/place/?q=place_id:{business_id}"}],
+                "maxCrawledPlacesPerSearch": 1,
+                "maxReviews": max_reviews,
+                "reviewsSort": "newest",
+                "language": "id"
+            }
+            
+            run_info = client.actor("compass/crawler-google-places").start(run_input=run_input)
+            run_id = run_info.get('id') if isinstance(run_info, dict) else getattr(run_info, 'id', None)
+            
+            GRAB_REVIEWS_STATUS['message'] = 'Menunggu Apify...'
+            GRAB_REVIEWS_STATUS['log'] = 'Memulai container Apify...\n'
+            
+            import time
+            while True:
+                info = client.run(run_id).get()
+                status = info.get('status') if isinstance(info, dict) else getattr(info, 'status', None)
+                
+                try:
+                    log_bytes = client.run(run_id).log().get()
+                    if log_bytes:
+                        log_str = log_bytes.decode('utf-8') if isinstance(log_bytes, bytes) else str(log_bytes)
+                        lines = log_str.strip().split('\n')
+                        GRAB_REVIEWS_STATUS['log'] = '\n'.join(lines[-10:])
+                except:
+                    pass
+                    
+                if status in ['SUCCEEDED', 'FAILED', 'ABORTED']:
+                    if status != 'SUCCEEDED':
+                        GRAB_REVIEWS_STATUS['message'] = f'Apify Error: {status}'
+                        GRAB_REVIEWS_STATUS['running'] = False
+                        return
+                    break
+                time.sleep(3)
+                
+            GRAB_REVIEWS_STATUS['log'] += 'Proses Apify selesai. Mengekstrak data...\n'
+            dataset_id = getattr(info, 'default_dataset_id', None) or (info.get('defaultDatasetId') if isinstance(info, dict) else None)
+            dataset_items = list(client.dataset(dataset_id).iterate_items())
+            
+            if not dataset_items:
+                GRAB_REVIEWS_STATUS['message'] = 'Error: Apify tidak menemukan data (Kemungkinan ID/URL tidak valid atau struktur halaman Google berubah)'
+                return
+                
+            place_data = dataset_items[0]
+            data_reviews = place_data.get('reviews', [])
+            
+            new_reviews = []
+            stop_early = False
+            for r in data_reviews:
+                r_id = r.get('reviewId', r.get('id'))
+                author = r.get('reviewerName', r.get('name', 'Anonim'))
+                text = r.get('text', '')
+                sig = f"{_clean(author)}||{_clean(text)}"
+                
+                if (r_id and r_id in existing_ids) or (sig in existing_sigs):
+                    stop_early = True
+                    break
+                
+                parsed_r = {
+                    'review_id': r_id,
+                    'reviewer': author,
+                    'date': r.get('publishDate', r.get('publishedAtDate', '')),
+                    'rating': int(r.get('stars') or r.get('rating') or 0),
+                    'text': text,
+                    'source': 'Google Maps'
+                }
+                new_reviews.append(parsed_r)
+                GRAB_REVIEWS_STATUS['progress'] = len(new_reviews)
+                
+        except Exception as e:
+            GRAB_REVIEWS_STATUS['message'] = f'Error API: {str(e)}'
+            
+        if new_reviews:
+            if business_id in reviews_db:
+                merged = {}
+                for r in reviews_db[business_id]:
+                    rid = r.get('review_id')
+                    sig = f"{_clean(r.get('reviewer'))}||{_clean(r.get('text'))}"
+                    merged[rid if rid else sig] = r
+                for r in reversed(new_reviews):
+                    rid = r.get('review_id')
+                    sig = f"{_clean(r.get('reviewer'))}||{_clean(r.get('text'))}"
+                    merged[rid if rid else sig] = r
+                final_list = list(merged.values())
+                final_list.sort(key=lambda x: x.get('date', ''), reverse=True)
+                reviews_db[business_id] = final_list
+            else:
+                reviews_db[business_id] = new_reviews
+                
+            save_json_file(GMAPS_REVIEWS_FILE, reviews_db)
+            GRAB_REVIEWS_STATUS['message'] = 'Selesai'
+        else:
+            if 'Error API' not in GRAB_REVIEWS_STATUS['message'] and 'API Error' not in GRAB_REVIEWS_STATUS['message'] and 'Endpoint' not in GRAB_REVIEWS_STATUS['message']:
+                GRAB_REVIEWS_STATUS['message'] = 'Selesai. Tidak ada ulasan baru.'
+        
+        if 'Error API' not in GRAB_REVIEWS_STATUS['message'] and 'API Error' not in GRAB_REVIEWS_STATUS['message'] and 'Endpoint' not in GRAB_REVIEWS_STATUS['message'] and 'Error:' not in GRAB_REVIEWS_STATUS['message']:
+            prof = accounts[business_id]['profile']
+            prof['last_reviews_update'] = datetime.now().strftime('%d %b %Y, %H:%M:%S')
+            
+            # Kalkulasi ulang bintang berdasarkan review lokal
+            all_revs = reviews_db.get(business_id, [])
+            star_counts = {1:0, 2:0, 3:0, 4:0, 5:0}
+            for rv in all_revs:
+                r_rating = rv.get('rating', 0)
+                if r_rating in star_counts:
+                    star_counts[r_rating] += 1
+            prof['star_1'] = star_counts[1]
+            prof['star_2'] = star_counts[2]
+            prof['star_3'] = star_counts[3]
+            prof['star_4'] = star_counts[4]
+            prof['star_5'] = star_counts[5]
+            
+            save_json_file(GMAPS_ACCOUNTS_FILE, accounts)
+            
+    except Exception as e:
+        GRAB_REVIEWS_STATUS['message'] = f'Error: {str(e)}'
+        
+    finally:
+        GRAB_REVIEWS_STATUS['running'] = False
+
+
+@socmed_bp.route('/api/gmaps/grab_reviews', methods=['POST'])
+@login_required
+def api_gmaps_grab_reviews():
+    global GRAB_REVIEWS_STATUS
+    if GRAB_REVIEWS_STATUS['running']:
+        return jsonify({'success': False, 'error': 'Proses grab masih berjalan'})
+        
+    business_id = request.json.get('business_id')
+    if not business_id:
+         return jsonify({'success': False, 'error': 'Business ID kosong'})
+         
+    thread = threading.Thread(target=bg_grab_reviews, args=(business_id,))
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'success': True, 'message': 'Grab dimulai'})
+
+@socmed_bp.route('/api/gmaps/grab_reviews/status', methods=['GET'])
+@login_required
+def api_gmaps_grab_reviews_status():
+    return jsonify(GRAB_REVIEWS_STATUS)
+
+
+
+
+@socmed_bp.route('/api/scrape/gmaps', methods=['POST'])
+@login_required
+def api_scrape_gmaps():
+    data = request.json
+    business_id = data.get('business_id', '').strip()
+    if not business_id:
+        return jsonify({'success': False, 'error': 'Business ID kosong'})
+    
+    try:
+        apify_token = os.environ.get('APIFY_TOKEN', '')
+        if not apify_token:
+            return jsonify({'success': False, 'error': 'APIFY_TOKEN belum diset di environment variable server.'})
+        
+        client = ApifyClient(apify_token)
+        
+        start_urls = []
+        if business_id.startswith('http'):
+            start_urls.append({"url": business_id})
+        elif business_id.startswith('ChIJ'):
+            start_urls.append({"url": f"https://www.google.com/maps/place/?q=place_id:{business_id}"})
+        else:
+            start_urls.append({"url": f"https://www.google.com/maps/search/?api=1&query={business_id}"})
+            
+        run_input = {
+            "startUrls": start_urls,
+            "maxCrawledPlacesPerSearch": 1,
+            "maxReviews": 0,
+            "maxImages": 0,
+            "language": "id"
+        }
+        
+        run = client.actor("compass/crawler-google-places").call(run_input=run_input)
+        dataset_items = list(client.dataset(run.default_dataset_id).iterate_items())
+        
+        if len(dataset_items) > 0:
+            data_obj = dataset_items[0]
+            
+            name = data_obj.get('title', business_id)
+            rating = data_obj.get('totalScore', 0.0)
+            reviews = data_obj.get('reviewsCount', 0)
+            
+            loc = data_obj.get('location', {})
+            latitude = loc.get('lat', '-')
+            longitude = loc.get('lng', '-')
+            
+            # Ambil distribusi bintang jika Apify menyediakannya
+            dist = data_obj.get('reviewsDistribution', {})
+            star_1 = dist.get('oneStar', 0)
+            star_2 = dist.get('twoStar', 0)
+            star_3 = dist.get('threeStar', 0)
+            star_4 = dist.get('fourStar', 0)
+            star_5 = dist.get('fiveStar', 0)
+            
+            actual_bid = data_obj.get('placeId', business_id)
+
+            return jsonify({
+                'success': True,
+                'is_fallback': False,
+                'profile': {
+                    'business_id': actual_bid,
+                    'name': name,
+                    'rating': float(rating),
+                    'reviews': int(reviews),
+                    'star_1': int(star_1),
+                    'star_2': int(star_2),
+                    'star_3': int(star_3),
+                    'star_4': int(star_4),
+                    'star_5': int(star_5),
+                    'latitude': latitude,
+                    'longitude': longitude,
+                    'link': data_obj.get('url', '')
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Tempat tidak ditemukan di Google Maps.'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Gagal memproses API: {str(e)}'})
+
+@socmed_bp.route('/api/gmaps/auto_backup', methods=['POST'])
+@login_required
+def gmaps_auto_backup():
+    accounts = load_json_file(GMAPS_ACCOUNTS_FILE)
+    if not accounts:
+        return jsonify({'success': False, 'error': 'Database Kosong'})
+    backup_dir = os.path.join('static', 'file_manager', 'Google Maps Report')
+    os.makedirs(backup_dir, exist_ok=True)
+    filename = f'GMaps_Report_AutoBackup_{datetime.now().strftime("%Y-%m-%d_%H%M")}.csv'
+    filepath = os.path.join(backup_dir, filename)
+    bids = sorted(accounts.keys(), key=lambda x: accounts[x].get('profile', {}).get('reviews', 0), reverse=True)
+    with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['No', 'Business Name', 'Rating', 'Total Reviews', 'Star 1', 'Star 2', 'Star 3', 'Star 4', 'Star 5', 'Koordinat'])
+        for i, u in enumerate(bids):
+            prof = accounts[u].get('profile', {})
+            coord = f"{prof.get('latitude', '-')}, {prof.get('longitude', '-')}"
+            writer.writerow([
+                i + 1,
+                prof.get('name', u),
+                prof.get('rating', 0),
+                prof.get('reviews', 0),
+                prof.get('star_1', 0),
+                prof.get('star_2', 0),
+                prof.get('star_3', 0),
+                prof.get('star_4', 0),
+                prof.get('star_5', 0),
+                coord
+            ])
+    return jsonify({'success': True, 'filename': filename})
+
+
+@socmed_bp.route('/api/gmaps/reviews/<business_id>', methods=['GET'])
+@login_required
+def get_gmaps_reviews(business_id):
+    year = request.args.get('year')
+    all_reviews = load_json_file(GMAPS_REVIEWS_FILE)
+    
+    b_reviews = all_reviews.get(business_id, [])
+    
+    # Sort reviews by date descending
+    b_reviews.sort(key=lambda x: x.get('date', ''), reverse=True)
+    
+    # Monthly Stats if year is requested
+    monthly_stats = None
+    historical_total = 0
+    if year:
+        # Initialize 12 months
+        monthly_stats = {
+            m: {'rating': 0, 'reviews': 0, 'star_1': 0, 'star_2': 0, 'star_3': 0, 'star_4': 0, 'star_5': 0, 'total_score': 0}
+            for m in range(1, 13)
+        }
+        
+        for r in b_reviews:
+            date_str = r.get('date', '')
+            if date_str:
+                if date_str < f"{year}-01-01":
+                    historical_total += 1
+                elif date_str.startswith(year):
+                    try:
+                        # Format is usually YYYY-MM-DD HH:MM:SS
+                        m = int(date_str.split('-')[1])
+                        rtg = r.get('rating', 0)
+                        monthly_stats[m]['reviews'] += 1
+                        monthly_stats[m]['total_score'] += rtg
+                        if rtg == 1: monthly_stats[m]['star_1'] += 1
+                        elif rtg == 2: monthly_stats[m]['star_2'] += 1
+                        elif rtg == 3: monthly_stats[m]['star_3'] += 1
+                        elif rtg == 4: monthly_stats[m]['star_4'] += 1
+                        elif rtg == 5: monthly_stats[m]['star_5'] += 1
+                    except:
+                        pass
+        
+        # Calculate average ratings
+        for m in range(1, 13):
+            if monthly_stats[m]['reviews'] > 0:
+                monthly_stats[m]['rating'] = round(monthly_stats[m]['total_score'] / monthly_stats[m]['reviews'], 2)
+            del monthly_stats[m]['total_score']
+            
+    # Process adjustments removed as per user request
+            
+    # Get Google's official total reviews count
+    all_accounts = load_json_file(GMAPS_ACCOUNTS_FILE)
+    b_acc = all_accounts.get(business_id, {})
+    b_prof = b_acc.get('profile', {}) if isinstance(b_acc, dict) else {}
+    google_total = b_prof.get('reviews', len(b_reviews))
+    last_update = b_prof.get('last_reviews_update', '-')
+            
+    return jsonify({
+        'success': True,
+        'business_id': business_id,
+        'total': len(b_reviews),
+        'google_total': google_total,
+        'last_update': last_update,
+        'reviews': b_reviews,
+        'monthly_stats': monthly_stats,
+        'historical_total': historical_total
+    })

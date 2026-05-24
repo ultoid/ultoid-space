@@ -96,7 +96,7 @@
 
         <div class="px-5 py-4 border-b border-white/[0.06] flex justify-between items-center" style="background: rgba(255,255,255,0.02);">
             <div class="flex items-center gap-3">
-                <h2 style="font-size:14px; font-weight:700;">Database Pemantauan Dealer</h2>
+                <h2 style="font-size:14px; font-weight:700;">Database Akun</h2>
                 <span style="font-size:10px; font-family:'DM Mono',monospace; color:var(--muted); background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:3px 10px; border-radius:20px;">Sync: <span id="lastUpdate">-</span></span>
             </div>
             <button onclick="konfirmasiUpdateSemua()" id="btnUpdateAll" class="u-btn u-btn-ghost text-xs text-center justify-center">🔄 Update Semua</button>
@@ -114,7 +114,7 @@
                 <thead>
                     <tr>
                         <th style="width:40px; text-align:center;">#</th>
-                        <th>Akun Dealer</th>
+                        <th>Akun Profil</th>
                         <th style="text-align:right;">Followers</th>
                         <th style="text-align:center;">Total Posts</th>
                         <th style="text-align:center; width:60px;">Hapus</th>
@@ -202,7 +202,7 @@
         const keys = Object.keys(dbAccounts).sort((a,b) => (dbAccounts[b].profile.followers || 0) - (dbAccounts[a].profile.followers || 0));
         
         if(keys.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center; color:var(--dim);">Belum ada dealer yang dilacak.</td></tr>`; return;
+            tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center; color:var(--dim);">Belum ada akun yang dilacak.</td></tr>`; return;
         }
         
         tbody.innerHTML = keys.map((k, index) => {
@@ -252,7 +252,7 @@
             if(data.success) {
                 await fetch('/api/ig/accounts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
                 el.value = ''; await loadAccounts();
-                if(data.is_fallback) alert(`⚠️ Note: Karena limit API, data @${user} ditarik menggunakan Fallback HTML Scraper (Akurasi sedikit berkurang).`);
+                if(data.is_fallback) alert(`⚠️ Note: Server API utama sedang tidak stabil. Data @${user} ditarik menggunakan Mode Cadangan (Akurasi sedikit berkurang, namun data tetap terselamatkan).`);
             } else { alert("Gagal: " + data.error); }
         } catch(e) { alert("Error koneksi."); }
         setLoadingState(false);
@@ -425,14 +425,14 @@
         const images = document.querySelectorAll('#summaryTableBody img');
         images.forEach(img => {
             const originalUrl = img.dataset.rawSrc || img.src; // Pastikan kita simpan original
-            const dealerName = img.dataset.name || 'User';
+            const accountName = img.dataset.name || 'User';
             
             // Gunakan proxy wsrv.nl untuk gambar dari CDN Instagram/Facebook
             if (originalUrl.includes('fbcdn.net') || originalUrl.includes('cdninstagram.com')) {
                 img.src = `https://wsrv.nl/?url=${encodeURIComponent(originalUrl)}&w=48&h=48&fit=cover&mask=circle`;
             } else {
                 // Fallback ke UI Avatars jika bukan gambar sosmed
-                img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(dealerName)}&background=random&color=fff&rounded=true&bold=true`;
+                img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(accountName)}&background=random&color=fff&rounded=true&bold=true`;
             }
         });
     }

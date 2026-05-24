@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from .config import IG_ACCOUNTS_FILE, TT_ACCOUNTS_FILE
+from .config import IG_ACCOUNTS_FILE, TT_ACCOUNTS_FILE, FB_ACCOUNTS_FILE
 
 
 def process_delta_for_file(filepath, is_fb=False):
@@ -51,14 +51,38 @@ def process_delta_for_file(filepath, is_fb=False):
 
 
 def calculate_monthly_delta():
-    print(f"[{datetime.now()}] MEMULAI KALKULASI DELTA BULANAN UNTUK IG & TT...")
+    print(f"[{datetime.now()}] MEMULAI KALKULASI DELTA BULANAN UNTUK IG, TT, FB...")
     process_delta_for_file(IG_ACCOUNTS_FILE, is_fb=False)
     process_delta_for_file(TT_ACCOUNTS_FILE, is_fb=False)
+    process_delta_for_file(FB_ACCOUNTS_FILE, is_fb=True)
+
+
+def gmaps_monthly_update():
+    print(f"[{datetime.now()}] MEMULAI CRON GMAPS: UPDATE PROFIL & GRAB REVIEWS...")
+    try:
+        from .blueprints.socmed import bg_mass_update_gmaps, bg_grab_reviews
+        from .config import load_json_file, GMAPS_ACCOUNTS_FILE
+        import time
+
+        print("1. Update Massal Profil Google Maps...")
+        bg_mass_update_gmaps()
+
+        print("2. Grab Ulasan Terbaru Google Maps...")
+        accounts = load_json_file(GMAPS_ACCOUNTS_FILE)
+        if accounts:
+            for bid in accounts.keys():
+                print(f"   -> Grabbing ulasan untuk: {bid}")
+                bg_grab_reviews(bid)
+                time.sleep(15)
+        print(f"[{datetime.now()}] CRON GMAPS SELESAI.")
+    except Exception as e:
+        print(f"[{datetime.now()}] ERROR CRON GMAPS: {e}")
 
 
 def setup_scheduler(app):
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=calculate_monthly_delta, trigger='cron', day=1, hour=1, minute=0)
+    scheduler.add_job(func=gmaps_monthly_update, trigger='cron', day=1, hour=0, minute=0)
     scheduler.start()
     import atexit
     atexit.register(lambda: scheduler.shutdown())
