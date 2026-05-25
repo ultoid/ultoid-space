@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Portfolio</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.png') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sora', sans-serif; background-color: #050308; color: #f3f4f6; }
+        .gradient-text { background: linear-gradient(to right, #a855f7, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .glass { background: #0f0a14; border: 1px solid #1f1627; }
+        input, textarea, select { 
+            width: 100%; 
+            background: #1a1122; 
+            border: 1px solid #2a1b38; 
+            border-radius: 8px; 
+            color: #fff; 
+            font-size: 0.875rem; /* text-sm */
+            padding: 0.75rem 1rem !important;
+        }
+        input:focus, textarea:focus { outline: none; border-color: #8b5cf6; }
+        label { display: block; margin-bottom: 0.5rem; color: #9ca3af; font-size: 0.875rem; font-weight: 500; }
+        .section-title { font-size: 1.25rem; font-weight: 700; border-bottom: 1px solid #1f1627; padding-bottom: 0.5rem; margin-bottom: 1.5rem; margin-top: 2rem;}
+        button.btn { padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        button.btn-primary { background: linear-gradient(to right, #8b5cf6, #6366f1); color: white; border: none; }
+        button.btn-primary:hover { box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
+        button.btn-danger { background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; font-size: 0.875rem;}
+        button.btn-danger:hover { background: #dc2626; }
+        button.btn-secondary { background: #1f1627; color: white; border: 1px solid #2d2138; }
+        button.btn-secondary:hover { background: #2d2138; }
+        .item-card { background: #150e1c; border: 1px solid #1f1627; padding: 1rem; border-radius: 0.75rem; position: relative; }
+        .drag-handle { cursor: grab; color: #94a3b8; padding: 0.5rem; border-radius: 0.25rem; background: #1f1627; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;}
+        .drag-handle:hover { background: #2d2138; color: white;}
+        .drag-handle:active { cursor: grabbing; }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+
+    <div class="max-w-5xl mx-auto glass p-8 rounded-2xl">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-10 pb-6 border-b border-[#1f1627]">
+            <h1 class="text-3xl font-bold gradient-text text-center sm:text-left">Edit Portfolio</h1>
+            <div class="flex gap-4 w-full sm:w-auto">
+                <a href="/portfolio/" class="btn btn-secondary w-full sm:w-auto text-center">View Site</a>
+            </div>
+        </div>
+
+        <form id="portfolioForm">
+            <!-- Basic Info -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><label>First Name</label><input type="text" id="p_first_name" class="px-4 py-3" value="{{ portfolio.first_name }}"></div>
+                <div><label>Last Name</label><input type="text" id="p_last_name" class="px-4 py-3" value="{{ portfolio.last_name | default('') }}"></div>
+                <div class="md:col-span-2"><label>Professional Title (Use '+' to split highlight)</label><input type="text" id="p_title" class="px-4 py-3" value="{{ portfolio.title }}"></div>
+                <div class="md:col-span-2"><label>About Me</label><textarea id="p_about" class="px-4 py-3" rows="4">{{ portfolio.about }}</textarea></div>
+                <div><label>Location</label><input type="text" id="p_location" class="px-4 py-3" value="{{ portfolio.location }}"></div>
+                <div><label>Phone</label><input type="text" id="p_phone" class="px-4 py-3" value="{{ portfolio.phone | default('') }}"></div>
+                <div class="md:col-span-2">
+                    <label>Profile Image URL / Upload</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="p_profile_image" class="px-4 py-3 flex-1" value="{{ portfolio.profile_image }}" placeholder="Enter image URL or click upload">
+                        <label for="p_profile_upload" class="bg-[#1f1627] hover:bg-[#2d2138] border border-[#2d2138] text-white px-4 py-3 rounded-lg cursor-pointer transition-colors whitespace-nowrap flex items-center">
+                            Upload Foto
+                        </label>
+                        <input type="file" id="p_profile_upload" class="hidden" accept="image/*" onchange="uploadProfileImage(this)">
+                    </div>
+                    <div id="upload_status" class="text-xs text-purple-400 mt-1 hidden">Uploading...</div>
+                </div>
+            </div>
+
+            <!-- Contact & Socials -->
+            <div class="section-title">Contact & Socials</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><label>Email</label><input type="email" id="p_email" class="px-4 py-3" value="{{ portfolio.email }}"></div>
+                <div><label>GitHub URL</label><input type="text" id="p_github" class="px-4 py-3" value="{{ portfolio.github }}"></div>
+                <div><label>LinkedIn URL</label><input type="text" id="p_linkedin" class="px-4 py-3" value="{{ portfolio.linkedin }}"></div>
+                <div><label>Twitter URL</label><input type="text" id="p_twitter" class="px-4 py-3" value="{{ portfolio.twitter | default('') }}"></div>
+            </div>
+
+            <!-- Stats -->
+            <div class="section-title flex justify-between items-center">
+                <span>Key Statistics</span>
+                <button type="button" class="btn btn-secondary text-sm py-1 px-3" onclick="addStat()">+ Add Stat</button>
+            </div>
+            <div id="statsList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+
+            <!-- Services -->
+            <div class="section-title flex justify-between items-center">
+                <span>My Services</span>
+                <button type="button" class="btn btn-secondary text-sm py-1 px-3" onclick="addService()">+ Add Service</button>
+            </div>
+            <div id="servicesList" class="space-y-4"></div>
+
+            <!-- Experience -->
+            <div class="section-title flex justify-between items-center">
+                <span>Work Experience</span>
+                <button type="button" class="btn btn-secondary text-sm py-1 px-3" onclick="addExperience()">+ Add Experience</button>
+            </div>
+            <div id="experienceList" class="space-y-4"></div>
+
+            <!-- Education -->
+            <div class="section-title flex justify-between items-center">
+                <span>Education</span>
+                <button type="button" class="btn btn-secondary text-sm py-1 px-3" onclick="addEducation()">+ Add Education</button>
+            </div>
+            <div id="educationList" class="space-y-4"></div>
+
+            <!-- Skills -->
+            <div class="section-title flex justify-between items-center">
+                <span>Skills</span>
+                <button type="button" class="btn btn-secondary text-sm py-1 px-3" onclick="addSkill()">+ Add Skill</button>
+            </div>
+            <div id="skillsList" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
+
+            <!-- Projects -->
+            <div class="section-title flex justify-between items-center">
+                <span>Featured Projects</span>
+                <button type="button" class="btn btn-secondary text-sm py-1 px-3" onclick="addProject()">+ Add Project</button>
+            </div>
+            <div id="projectList" class="space-y-6"></div>
+
+            <!-- Achievements -->
+            <div class="section-title flex justify-between items-center">
+                <span>Project & Achievement</span>
+                <button type="button" class="btn btn-secondary text-sm py-1 px-3" onclick="addAchievement()">+ Add Achievement</button>
+            </div>
+            <div id="achievementList" class="space-y-6"></div>
+
+            <!-- Floating Save Button -->
+            <div class="fixed bottom-6 right-6 z-50">
+                <button type="button" class="btn btn-primary shadow-lg shadow-purple-500/50 hover:scale-105 transition-transform" onclick="saveData()">Save Changes</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let statsData = {{ portfolio.stats | tojson | safe }};
+        let servicesData = {{ portfolio.services | tojson | safe }};
+        let experienceData = {{ portfolio.experience | tojson | safe }};
+        let educationData = {{ portfolio.education | tojson | safe }};
+        let skillsData = {{ portfolio.skills | tojson | safe }};
+        let projectsData = {{ portfolio.projects | tojson | safe }};
+        let achievementsData = {{ portfolio.achievements | default([]) | tojson | safe }};
+
+        // Render generic lists
+        function renderList(containerId, dataArray, renderFn) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            dataArray.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = 'item-card';
+                div.innerHTML = renderFn(item, i);
+                container.appendChild(div);
+            });
+        }
+
+        // Render functions
+        const renderStat = (item, i) => `
+            <button type="button" onclick="statsData.splice(${i},1); renderAll();" class="absolute top-2 right-2 text-red-400 hover:text-red-300">✕</button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                <div><label class="!text-xs">Number/Value</label><input type="text" class="px-4 py-3" value="${item.number || ''}" onchange="statsData[${i}].number=this.value"></div>
+                <div><label class="!text-xs">Label</label><input type="text" class="px-4 py-3" value="${item.label || ''}" onchange="statsData[${i}].label=this.value"></div>
+            </div>`;
+
+        const renderService = (item, i) => `
+            <button type="button" onclick="servicesData.splice(${i},1); renderAll();" class="absolute top-2 right-2 text-red-400 hover:text-red-300">✕</button>
+            <div class="flex gap-4 mt-2">
+                <div class="w-1/4"><label class="!text-xs">Number (e.g. 01)</label><input type="text" class="px-4 py-3" value="${item.number || ''}" onchange="servicesData[${i}].number=this.value"></div>
+                <div class="w-3/4"><label class="!text-xs">Title</label><input type="text" class="px-4 py-3" value="${item.title || ''}" onchange="servicesData[${i}].title=this.value"></div>
+            </div>
+            <div><label class="!text-xs">Description</label><textarea rows="2" class="px-4 py-3" onchange="servicesData[${i}].description=this.value">${item.description || ''}</textarea></div>`;
+
+        const renderTimeline = (item, i, arrayName) => `
+            <button type="button" onclick="${arrayName}.splice(${i},1); renderAll();" class="absolute top-2 right-2 text-red-400 hover:text-red-300">✕</button>
+            <i class="text-xs text-gray-500 absolute top-2 left-2 cursor-grab move-handle">☰ Move</i>
+            <div class="flex gap-4 mt-6">
+                <div class="w-1/4"><label class="!text-xs">Year</label><input type="text" class="px-4 py-3" value="${item.year || ''}" onchange="${arrayName}[${i}].year=this.value"></div>
+                <div class="w-3/4"><label class="!text-xs">Role/Degree</label><input type="text" class="px-4 py-3" value="${item.role || ''}" onchange="${arrayName}[${i}].role=this.value"></div>
+            </div>
+            <div><label class="!text-xs">Company/Institution</label><input type="text" class="px-4 py-3" value="${item.company || ''}" onchange="${arrayName}[${i}].company=this.value"></div>`;
+
+        const renderSkill = (item, i) => `
+            <button type="button" onclick="skillsData.splice(${i},1); renderAll();" class="absolute top-2 right-2 text-red-400 hover:text-red-300">✕</button>
+            <i class="text-xs text-gray-500 absolute top-2 left-2 cursor-grab move-handle">☰ Move</i>
+            <div class="flex flex-col sm:flex-row gap-4 mt-6">
+                <div class="w-full sm:w-1/2"><label class="!text-xs">Skill Name</label><input type="text" class="px-4 py-3" value="${item.name || ''}" onchange="skillsData[${i}].name=this.value"></div>
+                <div class="w-full sm:w-1/2"><label class="!text-xs">Icon URL (optional)</label><input type="text" class="px-4 py-3" value="${item.icon_url || ''}" onchange="skillsData[${i}].icon_url=this.value"></div>
+            </div>`;
+
+        const renderProject = (item, i) => `
+            <button type="button" onclick="projectsData.splice(${i},1); renderAll();" class="absolute top-4 right-4 text-red-400 hover:text-red-300">✕ Remove</button>
+            <div class="flex flex-col gap-4 mt-2">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1"><label class="!text-xs">Title</label><input type="text" class="px-4 py-3" value="${item.title || ''}" onchange="projectsData[${i}].title=this.value"></div>
+                    <div class="flex-1"><label class="!text-xs">Link</label><input type="text" class="px-4 py-3" value="${item.link || ''}" onchange="projectsData[${i}].link=this.value"></div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="!text-xs">Image / Video URL</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="proj_img_${i}" class="px-4 py-3 flex-1" value="${item.image || ''}" onchange="projectsData[${i}].image=this.value">
+                            <label for="proj_upload_${i}" class="bg-[#1f1627] hover:bg-[#2d2138] border border-[#2d2138] text-white px-3 py-3 rounded-lg cursor-pointer transition-colors text-xs whitespace-nowrap flex items-center">Upload</label>
+                            <input type="file" id="proj_upload_${i}" class="hidden" accept="image/*,video/*" onchange="uploadProjectMedia(this, 'projectsData', ${i}, 'proj_img_${i}')">
+                        </div>
+                    </div>
+                    <div class="flex-1"><label class="!text-xs">Tags (comma separated)</label><input type="text" class="px-4 py-3" value="${(item.tags || []).join(', ')}" onchange="projectsData[${i}].tags=this.value.split(',').map(t=>t.trim())"></div>
+                </div>
+                <div><label class="!text-xs">Description</label><textarea class="px-4 py-3" rows="3" onchange="projectsData[${i}].description=this.value">${item.description || ''}</textarea></div>
+            </div>`;
+
+        const renderAchievement = (item, i) => `
+            <button type="button" onclick="achievementsData.splice(${i},1); renderAll();" class="absolute top-4 right-4 text-red-400 hover:text-red-300">✕ Remove</button>
+            <div class="flex flex-col gap-4 mt-2">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1"><label class="!text-xs">Title</label><input type="text" class="px-4 py-3" value="${item.title || ''}" onchange="achievementsData[${i}].title=this.value"></div>
+                    <div class="flex-1"><label class="!text-xs">Link</label><input type="text" class="px-4 py-3" value="${item.link || ''}" onchange="achievementsData[${i}].link=this.value"></div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="!text-xs">Image / Video URL</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="ach_img_${i}" class="px-4 py-3 flex-1" value="${item.image || ''}" onchange="achievementsData[${i}].image=this.value">
+                            <label for="ach_upload_${i}" class="bg-[#1f1627] hover:bg-[#2d2138] border border-[#2d2138] text-white px-3 py-3 rounded-lg cursor-pointer transition-colors text-xs whitespace-nowrap flex items-center">Upload</label>
+                            <input type="file" id="ach_upload_${i}" class="hidden" accept="image/*,video/*" onchange="uploadProjectMedia(this, 'achievementsData', ${i}, 'ach_img_${i}')">
+                        </div>
+                    </div>
+                    <div class="flex-1"><label class="!text-xs">Tags (comma separated)</label><input type="text" class="px-4 py-3" value="${(item.tags || []).join(', ')}" onchange="achievementsData[${i}].tags=this.value.split(',').map(t=>t.trim())"></div>
+                </div>
+                <div><label class="!text-xs">Description</label><textarea class="px-4 py-3" rows="3" onchange="achievementsData[${i}].description=this.value">${item.description || ''}</textarea></div>
+            </div>`;
+
+        function renderAll() {
+            renderList('statsList', statsData, renderStat);
+            renderList('servicesList', servicesData, renderService);
+            renderList('experienceList', experienceData, (item, i) => renderTimeline(item, i, 'experienceData'));
+            renderList('educationList', educationData, (item, i) => renderTimeline(item, i, 'educationData'));
+            renderList('skillsList', skillsData, renderSkill);
+            renderList('projectList', projectsData, renderProject);
+            renderList('achievementList', achievementsData, renderAchievement);
+        }
+
+        // Add functions
+        function addStat() { statsData.push({number: '0', label: 'New Stat'}); renderAll(); }
+        function addService() { servicesData.push({number: '00', title: 'New Service', description: ''}); renderAll(); }
+        function addExperience() { experienceData.push({year: '2020', role: 'Role', company: 'Company'}); renderAll(); }
+        function addEducation() { educationData.push({year: '2020', role: 'Degree', company: 'Institution'}); renderAll(); }
+        function addSkill() { skillsData.push({name: 'Skill'}); renderAll(); }
+        function addProject() { projectsData.push({title: 'Project', description: '', link: '#', image: '', tags: []}); renderAll(); }
+        function addAchievement() { achievementsData.push({title: 'Achievement', description: '', link: '#', image: '', tags: []}); renderAll(); }
+
+        function initSortable() {
+            const expList = document.getElementById('experienceList');
+            const eduList = document.getElementById('educationList');
+            const skillList = document.getElementById('skillsList');
+            
+            if (expList._sortable) expList._sortable.destroy();
+            if (eduList._sortable) eduList._sortable.destroy();
+            if (skillList._sortable) skillList._sortable.destroy();
+
+            expList._sortable = new Sortable(expList, {
+                handle: '.move-handle',
+                animation: 150,
+                ghostClass: 'opacity-50',
+                onEnd: function (evt) {
+                    const item = experienceData.splice(evt.oldIndex, 1)[0];
+                    experienceData.splice(evt.newIndex, 0, item);
+                    renderAll();
+                }
+            });
+
+            eduList._sortable = new Sortable(eduList, {
+                handle: '.move-handle',
+                animation: 150,
+                ghostClass: 'opacity-50',
+                onEnd: function (evt) {
+                    const item = educationData.splice(evt.oldIndex, 1)[0];
+                    educationData.splice(evt.newIndex, 0, item);
+                    renderAll();
+                }
+            });
+
+            skillList._sortable = new Sortable(skillList, {
+                handle: '.move-handle',
+                animation: 150,
+                ghostClass: 'opacity-50',
+                onEnd: function (evt) {
+                    const item = skillsData.splice(evt.oldIndex, 1)[0];
+                    skillsData.splice(evt.newIndex, 0, item);
+                    renderAll();
+                }
+            });
+        }
+
+        // Run initSortable after first render
+        const originalRenderAll = renderAll;
+        renderAll = function() {
+            originalRenderAll();
+            setTimeout(initSortable, 0);
+        };
+
+        async function uploadProfileImage(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const statusLabel = document.getElementById('upload_status');
+            statusLabel.classList.remove('hidden', 'text-green-400', 'text-red-400');
+            statusLabel.classList.add('text-purple-400');
+            statusLabel.innerText = 'Uploading...';
+            
+            try {
+                const res = await fetch('/portfolio/api/upload_image', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('p_profile_image').value = data.url;
+                    statusLabel.innerText = 'Upload successful!';
+                    statusLabel.classList.replace('text-purple-400', 'text-green-400');
+                    setTimeout(() => statusLabel.classList.add('hidden'), 3000);
+                } else {
+                    alert('Upload failed: ' + data.error);
+                    statusLabel.classList.add('hidden');
+                }
+            } catch(e) {
+                alert('Error uploading file');
+                statusLabel.classList.add('hidden');
+            }
+            input.value = ''; // Reset input
+        }
+
+        async function uploadProjectMedia(input, dataArrayName, index, inputId) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const res = await fetch('/portfolio/api/upload_image', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (dataArrayName === 'projectsData') projectsData[index].image = data.url;
+                    if (dataArrayName === 'achievementsData') achievementsData[index].image = data.url;
+                    document.getElementById(inputId).value = data.url;
+                } else {
+                    alert('Upload failed: ' + data.error);
+                }
+            } catch(e) {
+                alert('Error uploading file');
+            }
+            input.value = ''; // Reset input
+        }
+
+        async function saveData() {
+            const btn = document.querySelector('.btn-primary');
+            btn.innerText = 'Saving...';
+            
+            const payload = {
+                first_name: document.getElementById('p_first_name').value,
+                last_name: document.getElementById('p_last_name').value,
+                title: document.getElementById('p_title').value,
+                about: document.getElementById('p_about').value,
+                location: document.getElementById('p_location').value,
+                phone: document.getElementById('p_phone').value,
+                profile_image: document.getElementById('p_profile_image').value,
+                email: document.getElementById('p_email').value,
+                github: document.getElementById('p_github').value,
+                linkedin: document.getElementById('p_linkedin').value,
+                twitter: document.getElementById('p_twitter').value,
+                stats: statsData,
+                services: servicesData,
+                experience: experienceData,
+                education: educationData,
+                skills: skillsData,
+                projects: projectsData,
+                achievements: achievementsData
+            };
+
+            try {
+                const res = await fetch('/portfolio/api/data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                if(res.ok) {
+                    alert('Portfolio saved successfully!');
+                } else {
+                    alert('Error saving portfolio.');
+                }
+            } catch(e) {
+                alert('Error connecting to server.');
+            } finally {
+                btn.innerText = 'Save Changes';
+            }
+        }
+
+        renderAll();
+    </script>
+</body>
+</html>

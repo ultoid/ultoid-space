@@ -12,6 +12,7 @@ DATA_FOLDER = 'data'
 SECRET_KEY_FILE = os.path.join(DATA_FOLDER, '.secret_key')
 NOTES_FILE = os.path.join(DATA_FOLDER, 'notes.json')
 TASKS_FILE = os.path.join(DATA_FOLDER, 'tasks.json')
+PORTFOLIO_FILE = os.path.join(DATA_FOLDER, 'portfolio.json')
 CREDENTIALS_FILE = os.path.join(DATA_FOLDER, 'credentials.txt')
 FM_ROOT = 'static/file_manager'
 NOTES_IMAGES_FOLDER = 'static/notes_images'
