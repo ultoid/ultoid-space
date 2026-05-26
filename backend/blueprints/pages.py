@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, jsonify, request, send_from_directory, current_app
 from ..utils import login_required
-from ..config import NOTES_FILE, TASKS_FILE, OUTPUT_FOLDER, GAMES_FILE, NOTES_IMAGES_FOLDER
+from ..config import NOTES_FILE, TASKS_FILE, OUTPUT_FOLDER, GAMES_FILE, NOTES_IMAGES_FOLDER, SAVES_FOLDER, GAME_IMAGES_FOLDER
 import os
+from werkzeug.utils import secure_filename
 import uuid
 import json
 
@@ -156,3 +157,77 @@ def upload_note_image():
         # return the absolute path starting with /static for frontend rendering
         return jsonify({'success': True, 'url': f'/{NOTES_IMAGES_FOLDER}/{filename}'})
     return jsonify({'success': False, 'error': 'Failed to upload'}), 500
+
+
+@pages_bp.route('/api/emulator/upload_rom', methods=['POST'])
+@login_required
+def upload_rom():
+    if 'rom_file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file part'}), 400
+    file = request.files['rom_file']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No selected file'}), 400
+    if file:
+        filename = secure_filename(file.filename)
+        roms_dir = os.path.abspath(os.path.join(current_app.root_path, '..', 'roms'))
+        os.makedirs(roms_dir, exist_ok=True)
+        filepath = os.path.join(roms_dir, filename)
+        file.save(filepath)
+        return jsonify({'success': True, 'filename': filename})
+    return jsonify({'success': False, 'error': 'Failed to upload'}), 500
+
+@pages_bp.route('/api/emulator/upload_image', methods=['POST'])
+@login_required
+def upload_game_image():
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No image part'}), 400
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No selected file'}), 400
+    if file:
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'png'
+        filename = f"{uuid.uuid4().hex}.{ext}"
+        filepath = os.path.join(GAME_IMAGES_FOLDER, filename)
+        file.save(filepath)
+        return jsonify({'success': True, 'url': f'/{GAME_IMAGES_FOLDER}/{filename}'})
+    return jsonify({'success': False, 'error': 'Failed to upload'}), 500
+
+
+@pages_bp.route('/play/<int:game_id>', endpoint='play_game')
+@login_required
+def play_game(game_id):
+    if os.path.exists(GAMES_FILE):
+        with open(GAMES_FILE, 'r', encoding='utf-8') as f:
+            games = json.load(f)
+            game = next((g for g in games if g.get('id') == game_id), None)
+            if game:
+                state_file = os.path.join(SAVES_FOLDER, f"{game_id}.state")
+                has_save = os.path.exists(state_file)
+                return render_template('player.html', game=game, has_save=has_save)
+    return "Game not found", 404
+
+
+@pages_bp.route('/roms/<path:filename>', endpoint='serve_rom')
+@login_required
+def serve_rom(filename):
+    roms_dir = os.path.abspath(os.path.join(current_app.root_path, '..', 'roms'))
+    return send_from_directory(roms_dir, filename)
+
+
+@pages_bp.route('/api/emulator/save/<int:game_id>', methods=['POST'])
+@login_required
+def save_emulator_state(game_id):
+    state_file = os.path.join(SAVES_FOLDER, f"{game_id}.state")
+    data = request.get_data()
+    with open(state_file, 'wb') as f:
+        f.write(data)
+    return jsonify({'success': True})
+
+
+@pages_bp.route('/api/emulator/load/<int:game_id>')
+@login_required
+def load_emulator_state(game_id):
+    state_file = os.path.join(SAVES_FOLDER, f"{game_id}.state")
+    if os.path.exists(state_file):
+        return send_from_directory(os.path.abspath(SAVES_FOLDER), f"{game_id}.state")
+    return '', 404

@@ -310,7 +310,7 @@
         });
 
         carousel.addEventListener('wheel', (evt) => { evt.preventDefault(); carousel.scrollLeft += evt.deltaY * 1.5; });
-        function playActiveGame() { if(filteredGames.length > 0) window.open(filteredGames[activeGameIndex].playUrl, '_blank'); }
+        function playActiveGame() { if(filteredGames.length > 0) window.open(filteredGames[activeGameIndex].playUrl, '_self'); }
         setInterval(() => { document.getElementById('switchClock').innerText = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }, 1000);
 
         fetchGameDatabase();

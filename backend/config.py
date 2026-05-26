@@ -16,6 +16,7 @@ PORTFOLIO_FILE = os.path.join(DATA_FOLDER, 'portfolio.json')
 CREDENTIALS_FILE = os.path.join(DATA_FOLDER, 'credentials.txt')
 FM_ROOT = 'static/file_manager'
 NOTES_IMAGES_FOLDER = 'static/notes_images'
+GAME_IMAGES_FOLDER = 'static/game_images'
 QRCODES_FILE = os.path.join(DATA_FOLDER, 'qrcodes.json')
 QRCODES_FOLDER = 'static/qrcodes'
 QRCODES_LOGOS_FOLDER = os.path.join(QRCODES_FOLDER, 'logos')
@@ -38,6 +39,7 @@ GMAPS_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'gmaps_accounts.json')
 GMAPS_REVIEWS_FILE = os.path.join(DATA_FOLDER, 'gmaps_reviews.json')
 GAMES_FILE = os.path.join(DATA_FOLDER, 'games.json')
 SETTINGS_FILE = 'settings.json'
+SAVES_FOLDER = os.path.join(DATA_FOLDER, 'saves')
 
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_LOCKOUT_SECONDS = 300
@@ -68,8 +70,10 @@ def ensure_directories():
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     os.makedirs(DATA_FOLDER, exist_ok=True)
     os.makedirs(NOTES_IMAGES_FOLDER, exist_ok=True)
+    os.makedirs(GAME_IMAGES_FOLDER, exist_ok=True)
     os.makedirs(QRCODES_FOLDER, exist_ok=True)
     os.makedirs(QRCODES_LOGOS_FOLDER, exist_ok=True)
+    os.makedirs(SAVES_FOLDER, exist_ok=True)
     for folder in DEFAULT_FOLDERS:
         os.makedirs(os.path.join(FM_ROOT, folder), exist_ok=True)
 

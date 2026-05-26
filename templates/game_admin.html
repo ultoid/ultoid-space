@@ -58,8 +58,9 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="u-glass rounded-2xl p-6 lg:col-span-1 h-fit shadow-2xl">
                 <h2 class="text-lg font-bold mb-4 flex items-center gap-2">➕ <span id="formModeText">Tambah Game Baru</span></h2>
-                <form id="gameForm" onsubmit="saveGame(event)" class="flex flex-col gap-3 text-sm">
+                <form id="gameForm" onsubmit="saveGame(event)" class="flex flex-col gap-3 text-sm" enctype="multipart/form-data">
                     <input type="hidden" id="gameId">
+                    <input type="hidden" id="existingRom">
                     
                     <div>
                         <label class="block text-gray-400 text-xs mb-1">Judul Game</label>
@@ -68,37 +69,47 @@
                     
                     <div>
                         <label class="block text-gray-400 text-xs mb-1">Konsol / Sistem</label>
-                        <input type="text" id="system" placeholder="Contoh: GBA, PS1, N64" class="u-input w-full px-3 py-2" required>
+                        <select id="system" class="u-input w-full px-3 py-2" required>
+                            <option value="GBA">Game Boy Advance (GBA)</option>
+                            <option value="GBC">Game Boy Color (GBC)</option>
+                            <option value="GB">Game Boy (GB)</option>
+                            <option value="NDS">Nintendo DS (NDS)</option>
+                            <option value="NES">Nintendo (NES)</option>
+                            <option value="SNES">Super Nintendo (SNES)</option>
+                            <option value="N64">Nintendo 64 (N64)</option>
+                            <option value="PSX">PlayStation 1 (PSX)</option>
+                            <option value="SEGAMD">Sega Mega Drive / Genesis</option>
+                        </select>
                     </div>
 
                     <div>
-                        <label class="block text-gray-400 text-xs mb-1">Play URL (Akses Direct RomM)</label>
-                        <input type="url" id="playUrl" placeholder="http://202.74.74.151:8081/rom/..." class="u-input w-full px-3 py-2" required>
+                        <label class="block text-gray-400 text-xs mb-1">File ROM (Upload)</label>
+                        <input type="file" id="romFile" class="u-input w-full px-3 py-2 text-gray-400">
+                        <p class="text-[10px] text-gray-500 mt-1" id="romHelp">Pilih file ROM (.gba, .nes, .iso, zip dll). <span class="text-yellow-500 hidden" id="romEditHelp">Abaikan jika tidak ingin mengganti ROM lama.</span></p>
                     </div>
 
                     <div class="my-2 border-t border-white/10"></div>
-                    <p class="text-[10px] text-gray-400 italic mb-2 text-center">Pilih salah satu metode gambar di bawah:</p>
-
-                    <div>
-                        <label class="block text-blue-400 text-xs mb-1 font-bold">▶ Opsi A: Auto Scrape Pokeharbor URL</label>
-                        <input type="url" id="pokeharborUrl" placeholder="https://www.pokeharbor.com/..." class="u-input w-full px-3 py-2" style="background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3);">
-                    </div>
-
-                    <div class="text-center text-xs text-gray-500 my-1 font-bold">ATAU MANUAL</div>
+                    <p class="text-[10px] text-gray-400 italic mb-2 text-center">Tampilan Gambar (Opsional)</p>
 
                     <div class="flex flex-col gap-3">
                         <div>
-                            <label class="block text-purple-400 text-xs mb-1 font-bold">▶ Opsi B: Cover Image URL (Poster)</label>
-                            <input type="url" id="cover" class="u-input w-full px-3 py-2" style="background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.3);">
+                            <label class="block text-purple-400 text-xs mb-1 font-bold">Cover Image (Upload atau URL)</label>
+                            <div class="flex gap-2">
+                                <input type="file" id="coverFile" accept="image/*" class="u-input w-1/2 px-2 py-1 text-xs">
+                                <input type="url" id="coverUrl" placeholder="Atau paste URL" class="u-input w-1/2 px-2 py-1 text-xs" style="background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.3);">
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-purple-400 text-xs mb-1 font-bold">▶ Opsi B: Background Image URL</label>
-                            <input type="url" id="bg" class="u-input w-full px-3 py-2" style="background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.3);">
+                            <label class="block text-purple-400 text-xs mb-1 font-bold">Background Image (Upload atau URL)</label>
+                            <div class="flex gap-2">
+                                <input type="file" id="bgFile" accept="image/*" class="u-input w-1/2 px-2 py-1 text-xs">
+                                <input type="url" id="bgUrl" placeholder="Atau paste URL" class="u-input w-1/2 px-2 py-1 text-xs" style="background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.3);">
+                            </div>
                         </div>
                     </div>
 
                     <div class="flex gap-2 mt-4">
-                        <button type="submit" class="u-btn u-btn-primary flex-1 py-2 rounded-lg transition shadow-lg text-center justify-center">Simpan</button>
+                        <button type="submit" id="saveBtn" class="u-btn u-btn-primary flex-1 py-2 rounded-lg transition shadow-lg text-center justify-center">Simpan</button>
                         <button type="button" onclick="resetForm()" class="u-btn u-btn-ghost py-2 px-4 rounded-lg transition">Batal</button>
                     </div>
                 </form>
@@ -148,15 +159,16 @@
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-white/5 hover:bg-white/5 transition';
                 
-                const imageMethod = g.pokeharborUrl 
-                    ? '<span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider">Pokeharbor</span>' 
-                    : '<span class="bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider">Manual URL</span>';
+                const imageMethod = g.cover 
+                    ? '<span class="bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider">Custom Image</span>' 
+                    : '<span class="bg-gray-500/20 text-gray-300 border border-gray-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider">Tanpa Gambar</span>';
                 
                 let icon = "🎮";
                 let sysLower = g.system.toLowerCase();
-                if(sysLower.includes('gba') || sysLower.includes('gameboy')) icon = "📱";
-                else if(sysLower.includes('ps1') || sysLower.includes('playstation')) icon = "💿";
+                if(sysLower.includes('gba') || sysLower.includes('gameboy') || sysLower.includes('gbc') || sysLower.includes('gb')) icon = "📱";
+                else if(sysLower.includes('ps1') || sysLower.includes('psx') || sysLower.includes('playstation')) icon = "💿";
                 else if(sysLower.includes('n64')) icon = "🕹️";
+                else if(sysLower.includes('nds')) icon = "📟";
 
                 tr.innerHTML = `
                     <td class="py-3 pl-2 text-gray-300 font-bold text-xs uppercase tracking-wide flex items-center gap-2"><span class="text-lg">${icon}</span> ${g.system}</td>
@@ -174,43 +186,101 @@
         function editGame(g) {
             document.getElementById('formModeText').innerText = "Edit Game";
             document.getElementById('gameId').value = g.id;
+            document.getElementById('existingRom').value = g.rom || '';
             document.getElementById('title').value = g.title;
             document.getElementById('system').value = g.system;
-            document.getElementById('playUrl').value = g.playUrl;
-            document.getElementById('pokeharborUrl').value = g.pokeharborUrl || '';
-            document.getElementById('cover').value = g.cover || '';
-            document.getElementById('bg').value = g.bg || '';
+            document.getElementById('romEditHelp').classList.remove('hidden');
+            
+            document.getElementById('coverUrl').value = g.cover || '';
+            document.getElementById('bgUrl').value = g.bg || '';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function resetForm() {
             document.getElementById('formModeText').innerText = "Tambah Game Baru";
             document.getElementById('gameId').value = '';
+            document.getElementById('existingRom').value = '';
+            document.getElementById('romEditHelp').classList.add('hidden');
             document.getElementById('gameForm').reset();
+        }
+
+        async function uploadFile(fileInput, endpoint, paramName) {
+            if (!fileInput.files || fileInput.files.length === 0) return null;
+            const formData = new FormData();
+            formData.append(paramName, fileInput.files[0]);
+            const res = await fetch(endpoint, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+                return data.filename || data.url;
+            }
+            throw new Error(data.error || 'Upload gagal');
         }
 
         async function saveGame(e) {
             e.preventDefault();
-            const idVal = document.getElementById('gameId').value;
-            const newGame = {
-                id: idVal ? parseInt(idVal) : Date.now(),
-                title: document.getElementById('title').value,
-                system: document.getElementById('system').value.toUpperCase(),
-                playUrl: document.getElementById('playUrl').value,
-                pokeharborUrl: document.getElementById('pokeharborUrl').value,
-                cover: document.getElementById('cover').value,
-                bg: document.getElementById('bg').value
-            };
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.innerText = "⏳ Menyimpan...";
 
-            if (idVal) {
-                const idx = games.findIndex(g => g.id == parseInt(idVal));
-                if(idx > -1) games[idx] = newGame;
-            } else {
-                games.push(newGame);
+            try {
+                const idVal = document.getElementById('gameId').value;
+                const generatedId = idVal ? parseInt(idVal) : Date.now();
+                
+                let romFilename = document.getElementById('existingRom').value;
+                
+                // Upload ROM if provided
+                const romFileInput = document.getElementById('romFile');
+                if (romFileInput.files.length > 0) {
+                    btn.innerText = "⏳ Uploading ROM...";
+                    romFilename = await uploadFile(romFileInput, '/api/emulator/upload_rom', 'rom_file');
+                }
+
+                if (!romFilename) {
+                    alert("Harap pilih file ROM!");
+                    throw new Error("No ROM");
+                }
+
+                // Upload Cover if provided
+                let coverValue = document.getElementById('coverUrl').value;
+                const coverFileInput = document.getElementById('coverFile');
+                if (coverFileInput.files.length > 0) {
+                    btn.innerText = "⏳ Uploading Cover...";
+                    coverValue = await uploadFile(coverFileInput, '/api/emulator/upload_image', 'image');
+                }
+
+                // Upload BG if provided
+                let bgValue = document.getElementById('bgUrl').value;
+                const bgFileInput = document.getElementById('bgFile');
+                if (bgFileInput.files.length > 0) {
+                    btn.innerText = "⏳ Uploading Background...";
+                    bgValue = await uploadFile(bgFileInput, '/api/emulator/upload_image', 'image');
+                }
+
+                const newGame = {
+                    id: generatedId,
+                    title: document.getElementById('title').value,
+                    system: document.getElementById('system').value.toUpperCase(),
+                    rom: romFilename,
+                    playUrl: '/play/' + generatedId,
+                    cover: coverValue,
+                    bg: bgValue
+                };
+
+                if (idVal) {
+                    const idx = games.findIndex(g => g.id == parseInt(idVal));
+                    if(idx > -1) games[idx] = newGame;
+                } else {
+                    games.push(newGame);
+                }
+
+                await syncToServer();
+                resetForm();
+            } catch(err) {
+                if(err.message !== "No ROM") alert("Gagal: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Simpan";
             }
-
-            await syncToServer();
-            resetForm();
         }
 
         async function deleteGame(id) {

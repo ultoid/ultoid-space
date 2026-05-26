@@ -13,50 +13,6 @@ from ..utils import login_required
 scraper_bp = Blueprint('scraper', __name__)
 
 
-@scraper_bp.route('/api/scrape-pokeharbor', methods=['POST'])
-def scrape_pokeharbor():
-    data = request.json
-    url = data.get('url', '').strip()
-    try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname or ''
-        if hostname not in ('www.pokeharbor.com', 'pokeharbor.com'):
-            return jsonify({'error': 'Link tidak valid. Pastikan link dari pokeharbor.com.'}), 400
-        if parsed.scheme not in ('http', 'https'):
-            return jsonify({'error': 'Skema URL tidak valid.'}), 400
-    except Exception:
-        return jsonify({'error': 'URL tidak dapat diproses.'}), 400
-
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        og_image = soup.find('meta', property='og:image')
-        cover_url = og_image['content'] if og_image else ''
-        content = soup.find('div', class_='entry-content')
-        images = content.find_all('img') if content else soup.find_all('img')
-        bg_url = ''
-        for img in images:
-            img_src = img.get('data-src') or img.get('src')
-            if img_src and img_src != cover_url:
-                bg_url = img_src
-                break
-        if not cover_url and images:
-            cover_url = images[0].get('data-src') or images[0].get('src')
-        if not bg_url:
-            bg_url = cover_url
-        if cover_url:
-            cover_url = cover_url.replace('http://', 'https://')
-        if bg_url:
-            bg_url = bg_url.replace('http://', 'https://')
-        raw_title = soup.title.string if soup.title else 'Pokemon ROM'
-        clean_title = raw_title.split(' - ')[0]
-        clean_title = clean_title.replace('Download', '').replace('Pre-Patched', '').strip()
-        return jsonify({'success': True, 'title': clean_title, 'cover': cover_url, 'bg': bg_url})
-    except Exception as e:
-        return jsonify({'error': str(e), 'success': False}), 500
 
 
 @scraper_bp.route('/preview-video', methods=['POST'])

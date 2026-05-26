@@ -17,7 +17,7 @@ Dirancang untuk membuat proses terjemahan novel, buku, atau dokumen panjang menj
 
 - 📂 **File Manager** — Kelola dokumen, gambar, dan hasil terjemahan dengan mudah melalui antarmuka lokal.
 - 🌐 **AI PDF Translator** — Terjemahkan PDF secara otomatis dengan bantuan AI (Google GenAI / Gemma 4), lalu simpan hasilnya ke Markdown atau Word.
-- 🎮 **Game Emulator** — Jalankan dan kelola game klasik langsung dari emulator yang tersedia di dalam aplikasi.
+- 🎮 **Game Emulator & Cloud Gaming** — Jalankan dan kelola game klasik langsung dari emulator lokal atau melalui integrasi Cloud Emulator Gaming (ROMM).
 - 📝 **Notes with Flowchart** — Buat catatan visual dan diagram alur untuk ide, tugas, atau proyek.
 - 📅 **Calendar Task** — Atur daftar tugas dan jadwal Anda dengan kalender terintegrasi.
 - ⬇️ **Video Downloader** — Unduh video dari berbagai platform media sosial secara langsung.

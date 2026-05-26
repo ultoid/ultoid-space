@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultoid Space Emulator Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+        #game-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 10; }
+        #game { width: 100%; height: 100%; }
+        #error-msg { position: absolute; z-index: 100; color: white; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; font-family: sans-serif; text-align: center; }
+    </style>
+</head>
+<body class="bg-black text-white font-sans">
+    
+    <div id="error-msg">
+        <div class="text-6xl mb-4">⚠️</div>
+        <div id="errorText" class="text-xl font-bold">Gagal memuat game...</div>
+    </div>
+
+    <div id="game-container">
+        <div id="game"></div>
+    </div>
+    
+    <!-- UI Overlay for Back Button -->
+    <div class="absolute top-4 left-4 z-50">
+        <button onclick="showExitModal()" class="bg-black/50 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-md border border-white/20 shadow-lg transition flex items-center gap-2 px-4 text-sm font-bold">
+            <span>🔙</span> Kembali
+        </button>
+    </div>
+
+    <!-- Custom Exit Modal -->
+    <div id="exit-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center transform scale-95 transition-transform duration-300" id="exit-modal-content">
+            <div class="text-4xl mb-4">⚠️</div>
+            <h3 class="text-xl font-bold text-white mb-2">Keluar dari Permainan?</h3>
+            <p class="text-gray-400 text-sm mb-6">Progres game yang belum disave akan hilang. Apa yang ingin Anda lakukan?</p>
+            
+            <div class="flex flex-col gap-3">
+                <button onclick="saveAndExit()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+                    <span>💾</span> Simpan & Keluar
+                </button>
+                <button onclick="exitWithoutSave()" class="w-full bg-red-600/10 hover:bg-red-600/30 text-red-500 font-bold py-3 px-4 rounded-lg border border-red-600/30 transition flex items-center justify-center gap-2">
+                    <span>🚪</span> Keluar Tanpa Save
+                </button>
+                <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-2 px-4 rounded-lg transition">
+                    Batal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        {% set sys = game.system | lower if game.system else '' %}
+        {% if 'gba' in sys or 'advance' in sys %}
+            {% set core = 'gba' %}
+        {% elif 'gbc' in sys or 'color' in sys %}
+            {% set core = 'gbc' %}
+        {% elif 'gb' in sys or 'gameboy' in sys %}
+            {% set core = 'gb' %}
+        {% elif 'ps1' in sys or 'psx' in sys %}
+            {% set core = 'psx' %}
+        {% elif 'n64' in sys %}
+            {% set core = 'n64' %}
+        {% elif 'snes' in sys or 'super' in sys %}
+            {% set core = 'snes' %}
+        {% elif 'nes' in sys or 'fc' in sys or 'famicom' in sys %}
+            {% set core = 'nes' %}
+        {% elif 'nds' in sys %}
+            {% set core = 'nds' %}
+        {% elif 'md' in sys or 'genesis' in sys %}
+            {% set core = 'segaMD' %}
+        {% else %}
+            {% set core = 'gba' %}
+        {% endif %}
+        
+        {% set romFileName = game.rom if game.rom else (game.title ~ '.gba') %}
+
+        // Bypass beforeunload flag when user intentionally exits
+        let bypassUnloadWarning = false;
+
+        function showExitModal() {
+            const modal = document.getElementById('exit-modal');
+            const content = document.getElementById('exit-modal-content');
+            modal.classList.remove('hidden');
+            // Small delay to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('exit-modal');
+            const content = document.getElementById('exit-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function exitWithoutSave() {
+            bypassUnloadWarning = true;
+            window.history.back();
+        }
+
+        async function saveAndExit() {
+            // Update UI modal untuk menunjukkan proses
+            const content = document.getElementById('exit-modal-content');
+            content.innerHTML = `
+                <div class="text-4xl mb-4 animate-spin">⏳</div>
+                <h3 class="text-xl font-bold text-white mb-2">Menyimpan...</h3>
+                <p class="text-yellow-400 text-sm mb-2 text-center">Menyimpan progres Anda ke cloud.</p>
+            `;
+            
+            try {
+                if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+                    // Paksa mengambil state dari internal API EmulatorJS
+                    const stateData = await window.EJS_emulator.gameManager.getState();
+                    if (stateData) {
+                        // Kirim langsung ke server
+                        const res = await fetch('/api/emulator/save/{{ game.id }}', {
+                            method: 'POST',
+                            body: stateData
+                        });
+                        if (res.ok) {
+                            console.log("Forced save successful!");
+                        } else {
+                            console.error("Gagal mengirim save ke server.");
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error("Gagal memaksa save state:", e);
+            }
+            
+            // Tunggu sedikit agar request selesai lalu keluar
+            setTimeout(() => {
+                bypassUnloadWarning = true;
+                window.history.back();
+            }, 1000);
+        }
+
+
+
+        window.EJS_player = '#game';
+        window.EJS_core = '{{ core }}';
+        window.EJS_gameUrl = '{{ url_for("pages.serve_rom", filename=romFileName) }}';
+        window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+        window.EJS_color = '#6366f1';
+        window.EJS_startOnLoaded = true;
+        
+        {% if has_save %}
+        window.EJS_loadStateURL = '/api/emulator/load/{{ game.id }}';
+        {% endif %}
+        
+        window.EJS_onSaveState = function(data) {
+            console.log("Saving state to cloud...");
+            fetch('/api/emulator/save/{{ game.id }}', {
+                method: 'POST',
+                body: data.state
+            }).then(res => {
+                if(res.ok) console.log("State saved successfully to cloud!");
+                else console.error("Failed to save state.");
+            }).catch(err => console.error("Error saving state", err));
+        };
+    </script>
+    <script src="https://cdn.emulatorjs.org/stable/data/loader.js" onerror="document.getElementById('errorText').innerText='Pemuatan diblokir. Pastikan server sudah di-restart untuk CSP baru.'; document.getElementById('error-msg').style.display='block';"></script>
+</body>
+</html>
