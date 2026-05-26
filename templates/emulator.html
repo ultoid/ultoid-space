@@ -17,7 +17,7 @@
         /* CATATAN: Styling .u-game-card dan .u-game-card.active sekarang diambil dari ultoid-theme.css! */
     </style>
 </head>
-<body class="bg-black text-white font-sans flex flex-col h-[100dvh] w-full overflow-hidden overscroll-none selection:bg-indigo-500 selection:text-white relative">
+<body class="bg-black text-white font-sans fixed inset-0 flex flex-col w-full overflow-hidden overscroll-none selection:bg-indigo-500 selection:text-white">
 
     <div id="loadingOverlay" class="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center text-white transition-opacity duration-500">
         <div class="text-6xl animate-bounce mb-4">👾</div>
@@ -55,22 +55,23 @@
         </div>
     </div>
 
-    <div class="relative z-10 flex justify-between items-center px-4 md:px-8 py-3 md:py-4 border-t border-white/20 bg-black/50 backdrop-blur-md w-full flex-shrink-0">
-        <div class="flex gap-3 md:gap-4">
-            <a href="/space" class="u-btn u-btn-ghost flex items-center gap-1.5 md:gap-2 text-white hover:text-red-400 transition font-medium text-xs md:text-base border-none">
-                <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-[10px] md:text-sm border border-white/30">B</div> <span class="hidden sm:inline">Space</span>
+    <div class="relative z-10 flex justify-between items-center px-3 md:px-8 py-3 md:py-4 border-t border-white/20 bg-black/50 backdrop-blur-md w-full flex-shrink-0 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+        <div class="flex gap-2 md:gap-4">
+            <a href="/space" class="flex items-center justify-center gap-2 text-white hover:text-red-400 transition font-medium text-sm md:text-base bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl px-3 py-2 md:px-5 md:py-2.5 shadow-md min-w-[3rem] min-h-[3rem]">
+                <span class="text-xl leading-none">🔙</span> <span class="hidden sm:inline font-bold">Space</span>
             </a>
-            <a href="/game-admin" class="u-btn u-btn-ghost flex items-center gap-1.5 md:gap-2 text-white hover:text-purple-400 transition font-medium text-xs md:text-base border-none">
-                <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-[10px] md:text-sm border border-purple-500/50">⚙️</div> <span class="hidden sm:inline">Admin</span>
+            <a href="/game-admin" class="flex items-center justify-center gap-2 text-white hover:text-purple-400 transition font-medium text-sm md:text-base bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/40 rounded-xl px-3 py-2 md:px-5 md:py-2.5 shadow-md min-w-[3rem] min-h-[3rem]">
+                <span class="text-xl leading-none">⚙️</span> <span class="hidden sm:inline font-bold">Admin</span>
             </a>
         </div>
         
-        <div class="flex items-center">
-            <button onclick="toggleFavorite()" id="btnFavorite" class="flex items-center gap-1 md:gap-1.5 text-white hover:text-pink-400 transition font-bold text-[10px] md:text-sm cursor-pointer mr-3 md:mr-6 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-black/30 shadow-md">
-                🤍 <span class="hidden sm:inline">Favorit</span>
+        <div class="flex items-center gap-2 md:gap-4">
+            <button onclick="toggleFavorite()" id="btnFavorite" class="flex items-center justify-center gap-2 text-white hover:text-pink-400 transition font-bold text-sm md:text-base cursor-pointer bg-black/40 hover:bg-black/60 border border-white/20 rounded-xl px-3 py-2 md:px-5 md:py-2.5 shadow-md min-w-[3rem] min-h-[3rem]">
+                <span class="text-xl leading-none">🤍</span> <span class="hidden sm:inline">Favorit</span>
             </button>
-            <button onclick="playActiveGame()" class="u-btn u-btn-primary flex items-center gap-1.5 md:gap-2 text-white transition font-medium text-xs md:text-base cursor-pointer">
-                <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white text-black flex items-center justify-center font-bold text-[10px] md:text-sm shadow-md border border-white">A</div> Mainkan
+            <button onclick="playActiveGame()" class="u-btn u-btn-primary flex items-center justify-center gap-2 text-white transition font-bold text-sm md:text-base cursor-pointer rounded-xl px-5 py-2 md:px-8 md:py-2.5 shadow-lg shadow-indigo-500/30 min-h-[3rem]">
+                <div class="w-6 h-6 md:w-7 md:h-7 rounded-full bg-white text-black flex items-center justify-center font-extrabold text-[10px] md:text-xs shadow-md border border-white leading-none">A</div> 
+                <span class="hidden sm:inline tracking-wide">Mainkan</span><span class="sm:hidden tracking-wide">Play</span>
             </button>
         </div>
     </div>
@@ -159,13 +160,13 @@
             
             const game = filteredGames[activeGameIndex];
             if(game.favorite) {
-                btn.innerHTML = `❤️ <span class="hidden sm:inline">Difavoritkan</span>`;
+                btn.innerHTML = `<span class="text-xl leading-none">❤️</span> <span class="hidden sm:inline">Difavoritkan</span>`;
                 btn.classList.add('text-pink-400', 'border-pink-500/50', 'bg-pink-500/20');
-                btn.classList.remove('text-white', 'border-white/20', 'bg-black/30');
+                btn.classList.remove('text-white', 'border-white/20', 'bg-black/40');
             } else {
-                btn.innerHTML = `🤍 <span class="hidden sm:inline">Favorit</span>`;
+                btn.innerHTML = `<span class="text-xl leading-none">🤍</span> <span class="hidden sm:inline">Favorit</span>`;
                 btn.classList.remove('text-pink-400', 'border-pink-500/50', 'bg-pink-500/20');
-                btn.classList.add('text-white', 'border-white/20', 'bg-black/30');
+                btn.classList.add('text-white', 'border-white/20', 'bg-black/40');
             }
         }
 
