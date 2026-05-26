@@ -300,6 +300,47 @@
             } catch(e) { alert("Gagal menyimpan ke server VPS!"); }
         }
 
+        document.getElementById('romFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const filename = file.name;
+            const lastDotIdx = filename.lastIndexOf('.');
+            
+            let nameWithoutExt = filename;
+            let ext = "";
+            if (lastDotIdx !== -1) {
+                nameWithoutExt = filename.substring(0, lastDotIdx);
+                ext = filename.substring(lastDotIdx + 1).toLowerCase();
+            }
+
+            const titleInput = document.getElementById('title');
+            if (!titleInput.value) {
+                // Bersihkan nama file (hapus underscore, dash, dll)
+                let cleanName = nameWithoutExt.replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+                // Hapus versi region dalam kurung jika ada (misal: (USA), (Europe))
+                cleanName = cleanName.replace(/\s*\(.*?\)/g, '');
+                cleanName = cleanName.replace(/\s*\[.*?\]/g, '');
+                titleInput.value = cleanName.trim();
+            }
+
+            const systemSelect = document.getElementById('system');
+            let sysVal = "";
+            if (ext === 'gba') sysVal = "GBA";
+            else if (ext === 'gbc') sysVal = "GBC";
+            else if (ext === 'gb') sysVal = "GB";
+            else if (ext === 'nds') sysVal = "NDS";
+            else if (ext === 'nes' || ext === 'fc') sysVal = "NES";
+            else if (ext === 'sfc' || ext === 'smc') sysVal = "SNES";
+            else if (ext === 'n64' || ext === 'z64') sysVal = "N64";
+            else if (ext === 'iso' || ext === 'bin' || ext === 'img' || ext === 'chd') sysVal = "PSX";
+            else if (ext === 'md' || ext === 'gen' || ext === 'smd') sysVal = "SEGAMD";
+
+            if (sysVal) {
+                systemSelect.value = sysVal;
+            }
+        });
+
         fetchGames();
     </script>
 </body>
