@@ -16,6 +16,7 @@ Dirancang untuk membuat proses terjemahan novel, buku, atau dokumen panjang menj
 ## ✨ Fitur Unggulan
 
 - 📂 **File Manager** — Kelola dokumen, gambar, dan hasil terjemahan dengan mudah melalui antarmuka lokal.
+- 🎬 **Local Streaming Platform** — Nonton koleksi film dan TV series lokal dengan antarmuka modern ala Netflix, dukungan subtitle responsif, riwayat *Continue Watching*, dan *custom video player*.
 - 🌐 **AI PDF Translator** — Terjemahkan PDF secara otomatis dengan bantuan AI (Google GenAI / Gemma 4), lalu simpan hasilnya ke Markdown atau Word.
 - 🎮 **Game Emulator & Cloud Gaming** — Jalankan dan kelola game klasik langsung dari emulator lokal atau melalui integrasi Cloud Emulator Gaming (ROMM).
 - 📝 **Notes with Flowchart** — Buat catatan visual dan diagram alur untuk ide, tugas, atau proyek.

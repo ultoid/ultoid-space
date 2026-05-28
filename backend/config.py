@@ -27,7 +27,8 @@ DEFAULT_FOLDERS = [
     'Social Media Report/IG Report',
     'Social Media Report/TT Report',
     'Social Media Report/FB Report',
-    'Google Maps Report'
+    'Google Maps Report',
+    'Movies'
 ]
 
 ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
@@ -40,6 +41,7 @@ GMAPS_REVIEWS_FILE = os.path.join(DATA_FOLDER, 'gmaps_reviews.json')
 GAMES_FILE = os.path.join(DATA_FOLDER, 'games.json')
 SETTINGS_FILE = 'settings.json'
 SAVES_FOLDER = os.path.join(DATA_FOLDER, 'saves')
+MOVIES_FILE = os.path.join(DATA_FOLDER, 'movies.json')
 
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_LOCKOUT_SECONDS = 300

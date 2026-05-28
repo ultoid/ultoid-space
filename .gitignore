@@ -15,6 +15,9 @@ outputs/
 data/
 emulator_data/
 roms/
+static/file_manager/
+ffmpeg/
+ffmpeg.zip
 __pycache__/
 venv/
 

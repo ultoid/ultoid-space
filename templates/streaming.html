@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultoid Streaming</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg:        #000000;
+            --text:      var(--text-primary, #f1f5f9);
+            --muted:     var(--text-muted, #9ca3af);
+            --accent:    #ef4444; 
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', 'Inter', sans-serif;
+            overflow-x: hidden;
+            margin: 0; padding: 0;
+        }
+        
+        /* Hide scrollbar for horizontal scrolling lists */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        
+        /* Netflix-style hover effect for movie cards */
+        .movie-card {
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), z-index 0.3s ease;
+        }
+        .movie-card:hover {
+            transform: scale(1.15) translateY(-5px);
+            z-index: 20;
+        }
+        .movie-card:hover .movie-overlay {
+            opacity: 1;
+        }
+        .movie-overlay {
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Hero Banner Gradient */
+        .hero-gradient {
+            background: linear-gradient(0deg, var(--bg) 0%, rgba(0,0,0,0.9) 25%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0) 100%);
+        }
+        .hero-side-gradient {
+            background: linear-gradient(90deg, #000000 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0) 100%);
+        }
+
+        .category-pill {
+            transition: all 0.2s;
+        }
+        .category-pill.active {
+            background-color: white;
+            color: black;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col custom-scroll">
+
+    <!-- Navbar Transparan -->
+    <nav class="absolute top-0 left-0 w-full z-50 px-5 py-4 bg-gradient-to-b from-black/80 to-transparent">
+        <div class="max-w-[1400px] mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="/space" title="Home" class="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition text-xl backdrop-blur-md">🤖</a>
+                <span class="text-xl font-bold tracking-tight drop-shadow-lg">Ultoid <span style="color: var(--accent);">Streaming</span></span>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/movies-admin" class="u-btn u-btn-ghost text-sm py-2 px-4 flex items-center gap-2 border border-white/10 backdrop-blur-md bg-black/20 hover:bg-white/10 rounded-full transition">
+                    <span>⚙️</span> Admin
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Banner -->
+    <div id="heroSection" class="relative w-full h-[70vh] md:h-[85vh] bg-black hidden">
+        <img id="heroImage" src="" alt="Hero" class="absolute inset-0 w-full h-full object-cover object-top opacity-80">
+        
+        <!-- Gradien Penutup -->
+        <div class="hero-side-gradient absolute inset-0"></div>
+        <div class="hero-gradient absolute inset-0"></div>
+
+        <!-- Konten Hero -->
+        <div class="absolute bottom-0 left-0 w-full p-6 md:p-12 pb-32 md:pb-40 z-10 max-w-[1400px] mx-auto left-0 right-0">
+            <div class="max-w-2xl">
+                <div id="heroBadge" class="inline-block bg-white/20 text-white backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold tracking-widest mb-3 border border-white/10">FEATURED</div>
+                <h1 id="heroTitle" class="text-4xl md:text-6xl font-extrabold mb-4 drop-shadow-2xl leading-tight text-white">Judul Film</h1>
+                <p id="heroCategory" class="text-sm md:text-base text-gray-300 drop-shadow-md mb-6 font-semibold"></p>
+                <div class="mt-6 md:mt-8 flex items-center gap-3 md:gap-4 relative z-10">
+                    <a id="heroPlayBtn" href="#" class="bg-white text-black hover:bg-gray-200 transition font-bold py-2 md:py-3 px-6 md:px-8 rounded-md flex items-center gap-2 text-sm md:text-base shadow-lg">
+                        <span class="text-xl">▶</span> Play
+                    </a>
+                </div>
+                <p id="heroProgressText" class="text-sm text-gray-300 mt-4 font-semibold hidden relative z-10"></p>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-1 w-full max-w-[1400px] mx-auto pb-20 -mt-24 md:-mt-32 relative z-20">
+        
+        <!-- Kategori Menu -->
+        <div class="px-6 md:px-12 mb-8">
+            <div id="categoryMenu" class="flex items-center gap-3 overflow-x-auto hide-scroll pb-2 pt-2">
+                <!-- Pills injected via JS -->
+            </div>
+        </div>
+
+        <div id="loading" class="flex flex-col items-center justify-center py-20">
+            <div class="animate-spin text-4xl mb-4" style="color: var(--accent)">🍿</div>
+            <p class="text-gray-400 animate-pulse text-sm">Memuat daftar film...</p>
+        </div>
+
+        <div id="emptyState" class="hidden flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/20 mx-6 md:mx-12">
+            <div class="text-6xl mb-4 opacity-50">📭</div>
+            <h2 class="text-xl font-bold mb-2">Belum Ada Film</h2>
+            <p class="text-sm text-gray-400 mb-6">Tambahkan film melalui halaman admin untuk mulai menonton.</p>
+            <a href="/movies-admin" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl shadow-lg transition font-bold">
+                Buka Admin Film
+            </a>
+        </div>
+
+        <!-- Wadah List Kategori -->
+        <div id="contentContainer" class="flex flex-col gap-10 px-6 md:px-12">
+            <!-- Rows injected via JS -->
+        </div>
+
+    </main>
+
+    <script>
+        let allMovies = [];
+        let categories = new Set();
+        let currentCategory = 'All';
+
+        async function fetchMovies() {
+            try {
+                const res = await fetch('/api/movies');
+                allMovies = await res.json();
+                
+                document.getElementById('loading').classList.add('hidden');
+                
+                if (allMovies.length === 0) {
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    return;
+                }
+
+                // Ekstrak Kategori
+                categories.add('All');
+                allMovies.forEach(m => {
+                    const cat = m.category ? m.category.trim() : 'Movies';
+                    categories.add(cat);
+                });
+
+                renderCategoryMenu();
+                renderHero();
+                renderContent();
+                
+            } catch(e) {
+                document.getElementById('loading').innerHTML = '<p class="text-red-400">Gagal memuat data film. Pastikan server VPS berjalan.</p>';
+                console.error(e);
+            }
+        }
+
+        function renderCategoryMenu() {
+            const menu = document.getElementById('categoryMenu');
+            menu.innerHTML = '';
+            
+            categories.forEach(cat => {
+                const btn = document.createElement('button');
+                btn.className = `category-pill whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-semibold border border-white/20 ${cat === currentCategory ? 'active' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`;
+                btn.innerText = cat;
+                btn.onclick = () => {
+                    currentCategory = cat;
+                    renderCategoryMenu();
+                    renderContent();
+                };
+                menu.appendChild(btn);
+            });
+        }
+
+        function renderHero(hero = null) {
+            if (allMovies.length === 0) return;
+            
+            if (!hero) {
+                // Pilih satu film secara acak untuk hero, prioritaskan yang punya background
+                const withBg = allMovies.filter(m => m.background);
+                const pool = withBg.length > 0 ? withBg : allMovies;
+                hero = pool[Math.floor(Math.random() * pool.length)];
+            }
+
+            const heroSec = document.getElementById('heroSection');
+            heroSec.classList.remove('hidden');
+            heroSec.classList.add('block');
+
+            // Gunakan background, jika tidak ada pakai cover, jika tidak ada fallback
+            const fallback = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=1200&auto=format&fit=crop';
+            document.getElementById('heroImage').src = hero.background || hero.cover || fallback;
+
+            document.getElementById('heroTitle').innerText = hero.title;
+            const heroCat = hero.category || 'Movies';
+            document.getElementById('heroCategory').innerHTML = `<span class="text-green-400">98% Match</span> &nbsp;&bull;&nbsp; ${heroCat} &nbsp;&bull;&nbsp; ${hero.type === 'series' ? 'TV Series' : 'Film'}`;
+            
+            document.getElementById('heroPlayBtn').onclick = (e) => {
+                e.preventDefault();
+                window.location.href = `/watch/${hero.id}`;
+            };
+            
+            // Check History
+            const history = JSON.parse(localStorage.getItem('ultoid_history') || '{}');
+            const userHistory = history[hero.id];
+            
+            const btn = document.getElementById('heroPlayBtn');
+            const infoText = document.getElementById('heroProgressText');
+            
+            if (userHistory && hero.type === 'series') {
+                btn.innerHTML = `<span class="text-xl">▶</span> Lanjutkan`;
+                infoText.innerText = `Lanjut menonton Episode ${userHistory.episodeIndex + 1} (Terakhir ditonton)`;
+                infoText.classList.remove('hidden');
+            } else {
+                btn.innerHTML = `<span class="text-xl">▶</span> Play`;
+                if(infoText) infoText.classList.add('hidden');
+            }
+            
+            document.getElementById('heroBadge').innerText = hero.type === 'series' ? 'SERIES' : 'MOVIE';
+        }
+
+        function createMovieCard(m) {
+            const fallbackCover = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=400&auto=format&fit=crop';
+            const coverImg = m.cover || fallbackCover;
+            const typeLabel = m.type === 'series' 
+                ? '<span class="bg-purple-600/90 text-white px-2 py-0.5 rounded text-[9px] font-bold tracking-wider shadow">SERIES</span>' 
+                : '';
+            
+            const card = document.createElement('div');
+            card.onclick = () => {
+                renderHero(m);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+            card.className = 'movie-card relative rounded-md overflow-hidden bg-gray-900 border border-white/10 cursor-pointer block shrink-0 w-32 md:w-44 lg:w-48 aspect-[2/3]';
+            
+            card.innerHTML = `
+                <img src="${coverImg}" alt="${m.title}" loading="lazy" class="absolute inset-0 w-full h-full object-cover">
+                <div class="absolute top-2 left-2 z-20">${typeLabel}</div>
+                <div class="movie-overlay absolute inset-0 flex flex-col justify-end p-3 z-10">
+                    <h3 class="font-bold text-white text-sm md:text-base leading-tight mb-1 drop-shadow-lg">${m.title}</h3>
+                    <div class="flex items-center gap-1 text-[10px] md:text-xs text-red-400 font-semibold drop-shadow-md">
+                        <span>ℹ️ Lihat Detail</span>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function renderContent() {
+            const container = document.getElementById('contentContainer');
+            container.innerHTML = '';
+
+            if (currentCategory === 'All') {
+                // Render per kategori secara berurutan
+                Array.from(categories).filter(c => c !== 'All').forEach(cat => {
+                    const moviesInCat = allMovies.filter(m => (m.category || 'Movies') === cat);
+                    if (moviesInCat.length > 0) {
+                        appendCategoryRow(cat, moviesInCat);
+                    }
+                });
+            } else {
+                // Render hanya kategori yang dipilih
+                const moviesInCat = allMovies.filter(m => (m.category || 'Movies') === currentCategory);
+                if (moviesInCat.length > 0) {
+                    appendCategoryRow(currentCategory, moviesInCat);
+                } else {
+                    container.innerHTML = `<div class="text-gray-400 py-10">Tidak ada film di kategori ini.</div>`;
+                }
+            }
+        }
+
+        function appendCategoryRow(title, movies) {
+            const container = document.getElementById('contentContainer');
+            
+            const rowWrapper = document.createElement('div');
+            rowWrapper.className = 'flex flex-col relative group';
+            
+            rowWrapper.innerHTML = `
+                <h2 class="text-lg md:text-xl font-bold mb-3 px-2 flex items-center gap-2">
+                    ${title} <span class="text-xs text-blue-400 font-bold opacity-0 group-hover:opacity-100 transition cursor-pointer">Lihat Semua ❯</span>
+                </h2>
+                <div class="flex items-center gap-3 md:gap-4 overflow-x-auto hide-scroll pb-6 pt-2 px-2 scroll-smooth" id="row-${title.replace(/\s+/g, '-')}" style="scroll-snap-type: x mandatory;">
+                </div>
+            `;
+            container.appendChild(rowWrapper);
+
+            const scrollRow = rowWrapper.querySelector('div[id^="row-"]');
+            movies.forEach(m => {
+                const card = createMovieCard(m);
+                card.style.scrollSnapAlign = 'start';
+                scrollRow.appendChild(card);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchMovies);
+    </script>
+</body>
+</html>

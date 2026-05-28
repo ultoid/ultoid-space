@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultoid Streaming Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg:        var(--bg-base, #07090f);
+            --glass:     var(--glass-bg, rgba(255,255,255,0.04));
+            --border:    var(--glass-border, rgba(255,255,255,0.08));
+            --border-h:  var(--glass-hover, rgba(255,255,255,0.13));
+            --text:      var(--text-primary, #f1f5f9);
+            --muted:     var(--text-muted, #64748b);
+            --accent:    #ef4444; 
+            --accent2:   #dc2626;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+        }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: var(--border-h); border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col custom-scroll">
+
+    <nav class="u-glass sticky top-0 z-50 px-5 py-3" style="border-radius:0; border-top:none; border-left:none; border-right:none; background: rgba(7,9,15,0.7);">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <a href="/space" title="Home" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-base">🤖</a>
+                <div class="w-px h-5 bg-white/10"></div>
+                <a href="/streaming" class="u-btn u-btn-ghost text-xs py-1.5 px-3">← Streaming</a>
+                <div class="w-px h-5 bg-white/10"></div>
+                <span class="text-sm font-semibold tracking-tight">Streaming <span style="color: var(--accent);">Admin</span></span>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
+                <div class="u-glass text-xs text-gray-400 px-4 py-2 rounded-xl">
+                    Modul Manajemen Film 🍿
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 p-4 md:p-8 max-w-6xl w-full mx-auto">
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="u-glass rounded-2xl p-6 lg:col-span-1 h-fit shadow-2xl">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">➕ <span id="formModeText">Tambah Film Baru</span></h2>
+                <form id="movieForm" onsubmit="saveMovie(event)" class="flex flex-col gap-3 text-sm">
+                    <input type="hidden" id="movieId">
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-1">
+                            <label class="block text-gray-400 text-xs mb-1">Judul Film / Series</label>
+                            <input type="text" id="title" placeholder="Contoh: The Matrix" class="u-input w-full px-3 py-2" required>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-gray-400 text-xs mb-1">Kategori</label>
+                            <input type="text" id="category" list="categoryList" placeholder="Pilih / Ketik Kategori..." class="u-input w-full px-3 py-2" required>
+                            <datalist id="categoryList">
+                                <option value="Movies">
+                                <option value="TV Shows">
+                                <option value="Anime">
+                                <option value="Action">
+                                <option value="Drama">
+                                <option value="Comedy">
+                            </datalist>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-400 text-xs mb-1">Pilih Video atau Folder Series (dari Movies)</label>
+                        <div class="flex gap-2">
+                            <select id="videoSelect" class="u-input w-full px-3 py-2" required onchange="handleVideoSelectChange()">
+                                <option value="">Memuat...</option>
+                            </select>
+                            <button type="button" onclick="loadFiles('Movies', 'videoSelect')" class="u-btn u-btn-ghost px-2" title="Refresh">🔄</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-400 text-xs mb-1">Subtitle (.vtt) (Opsional)</label>
+                        <div class="flex gap-2 mb-2">
+                            <select id="subSelect" class="u-input w-full px-3 py-2">
+                                <option value="">Tanpa Subtitle</option>
+                            </select>
+                            <button type="button" onclick="loadFiles('Movies', 'subSelect')" class="u-btn u-btn-ghost px-2" title="Refresh">🔄</button>
+                        </div>
+                        <button type="button" id="btnExtractSub" onclick="extractSubtitle()" class="u-btn u-btn-ghost w-full py-1 text-xs border border-white/10" style="color:var(--accent)">
+                            Ekstrak Subtitle dari Video
+                        </button>
+                        <p class="text-[10px] text-gray-500 mt-1" id="subStatus"></p>
+                    </div>
+
+                    <div class="my-2 border-t border-white/10"></div>
+                    <p class="text-[10px] text-gray-400 italic mb-2 text-center">Tampilan Gambar UI</p>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-1">
+                            <label class="block text-blue-400 text-xs mb-1 font-bold">Thumbnail Poster (Opsional)</label>
+                            <input type="url" id="coverUrl" placeholder="https://... (Potret)" class="u-input w-full px-2 py-2 text-xs" style="background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3);">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-purple-400 text-xs mb-1 font-bold">Background Hero (Opsional)</label>
+                            <input type="url" id="bgUrl" placeholder="https://... (Lanskap 16:9)" class="u-input w-full px-2 py-2 text-xs" style="background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.3);">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-4">
+                        <button type="submit" id="saveBtn" class="u-btn u-btn-primary flex-1 py-2 rounded-lg transition shadow-lg text-center justify-center">Simpan</button>
+                        <button type="button" onclick="resetForm()" class="u-btn u-btn-ghost py-2 px-4 rounded-lg transition">Batal</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="u-glass rounded-2xl p-6 lg:col-span-2 overflow-x-auto shadow-2xl">
+                <h2 class="text-lg font-bold mb-4">🗂️ Daftar Film</h2>
+                <table class="w-full text-left border-collapse min-w-[600px]">
+                    <thead>
+                        <tr class="border-b border-white/20 text-gray-400 text-xs uppercase tracking-widest">
+                            <th class="pb-3 pl-2">Poster</th>
+                            <th class="pb-3">Judul & Tipe</th>
+                            <th class="pb-3">Path Data</th>
+                            <th class="pb-3 text-right pr-2">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="movieTableBody" class="text-sm">
+                        </tbody>
+                </table>
+            </div>
+            
+        </div>
+    </main>
+
+    <script>
+        let movies = [];
+
+        async function fetchMovies() {
+            try {
+                const res = await fetch('/api/movies');
+                movies = await res.json();
+                renderTable();
+            } catch(e) { console.error("Gagal menarik data film", e); }
+        }
+
+        async function loadFiles(path, selectId) {
+            const select = document.getElementById(selectId);
+            const oldVal = select.value;
+            select.innerHTML = '<option value="">Memuat...</option>';
+            try {
+                const res = await fetch(`/api/fm/list?path=${encodeURIComponent(path)}`);
+                const data = await res.json();
+                select.innerHTML = selectId === 'subSelect' ? '<option value="">Tanpa Subtitle</option>' : '<option value="">Pilih File/Folder...</option>';
+                
+                // Tambahkan Folder sebagai opsi jika untuk videoSelect
+                if(selectId === 'videoSelect' && data.folders) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = "📁 Folder (Series)";
+                    data.folders.forEach(f => {
+                        optgroup.innerHTML += `<option value="Movies/${f.name}" data-type="series">📁 ${f.name}</option>`;
+                    });
+                    select.appendChild(optgroup);
+                }
+
+                // Tambahkan File
+                const optgroupFiles = document.createElement('optgroup');
+                optgroupFiles.label = "🎬 File Video/Subtitle";
+                data.files.forEach(f => {
+                    const ext = f.name.split('.').pop().toLowerCase();
+                    if(selectId === 'videoSelect' && ['mp4', 'mkv', 'webm'].includes(ext)) {
+                        optgroupFiles.innerHTML += `<option value="Movies/${f.name}" data-type="movie">🎬 ${f.name}</option>`;
+                    } else if(selectId === 'subSelect' && ['vtt', 'srt'].includes(ext)) {
+                        optgroupFiles.innerHTML += `<option value="Movies/${f.name}">${f.name}</option>`;
+                    }
+                });
+                select.appendChild(optgroupFiles);
+
+                if(oldVal) select.value = oldVal;
+                if(selectId === 'videoSelect') handleVideoSelectChange();
+            } catch (e) {
+                select.innerHTML = '<option value="">Gagal memuat file</option>';
+            }
+        }
+
+        function handleVideoSelectChange() {
+            const select = document.getElementById('videoSelect');
+            const subSelect = document.getElementById('subSelect');
+            const btnExtract = document.getElementById('btnExtractSub');
+            
+            const selectedOpt = select.options[select.selectedIndex];
+            if(selectedOpt && selectedOpt.getAttribute('data-type') === 'series') {
+                subSelect.disabled = true;
+                btnExtract.disabled = true;
+                subSelect.value = '';
+                document.getElementById('subStatus').innerHTML = '<span class="text-yellow-400">Subtitle untuk series dikelola otomatis di dalam folder.</span>';
+            } else {
+                subSelect.disabled = false;
+                btnExtract.disabled = false;
+                document.getElementById('subStatus').innerHTML = '';
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('movieTableBody');
+            tbody.innerHTML = '';
+            
+            if(movies.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-500 italic text-xs">Belum ada film. Tambahkan di sebelah kiri.</td></tr>`;
+                return;
+            }
+
+            movies.forEach(m => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5 hover:bg-white/5 transition';
+                
+                const coverHTML = m.cover 
+                    ? `<img src="${m.cover}" class="w-12 h-16 object-cover rounded-md shadow-sm border border-white/10">` 
+                    : `<div class="w-12 h-16 bg-white/10 rounded-md flex items-center justify-center text-xl">🎬</div>`;
+                
+                const typeBadge = m.type === 'series' 
+                    ? `<span class="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded text-[10px] font-bold ml-2">SERIES</span>`
+                    : `<span class="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-[10px] font-bold ml-2">MOVIE</span>`;
+
+                tr.innerHTML = `
+                    <td class="py-3 pl-2">${coverHTML}</td>
+                    <td class="py-3 font-bold text-white">
+                        ${m.title} <br>
+                        <span class="text-[10px] text-gray-400 font-normal">Kategori: ${m.category || 'Movies'}</span>
+                        ${typeBadge}
+                    </td>
+                    <td class="py-3 text-xs text-gray-400 break-all">${m.video_path}</td>
+                    <td class="py-3 text-right pr-2">
+                        <button onclick='editMovie(${JSON.stringify(m).replace(/'/g, "&apos;")})' class="u-btn u-btn-ghost px-3 py-1.5 rounded-lg text-xs mr-2 transition font-bold" style="color: #60a5fa; border-color: rgba(96,165,250,0.3);">Edit</button>
+                        <button onclick="deleteMovie(${m.id})" class="u-btn u-btn-danger px-3 py-1.5 rounded-lg text-xs transition font-bold">Hapus</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function editMovie(m) {
+            document.getElementById('formModeText').innerText = "Edit Film / Series";
+            document.getElementById('movieId').value = m.id;
+            document.getElementById('title').value = m.title;
+            document.getElementById('category').value = m.category || '';
+            document.getElementById('videoSelect').value = m.video_path || '';
+            handleVideoSelectChange();
+            document.getElementById('subSelect').value = m.sub_path || '';
+            document.getElementById('coverUrl').value = m.cover || '';
+            document.getElementById('bgUrl').value = m.background || '';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            document.getElementById('formModeText').innerText = "Tambah Film / Series Baru";
+            document.getElementById('movieId').value = '';
+            document.getElementById('movieForm').reset();
+            document.getElementById('subStatus').innerText = '';
+        }
+
+        async function saveMovie(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.innerText = "⏳ Menyimpan...";
+
+            try {
+                const idVal = document.getElementById('movieId').value;
+                const generatedId = idVal ? parseInt(idVal) : Date.now();
+                
+                const videoPath = document.getElementById('videoSelect').value;
+                if (!videoPath) {
+                    alert("Harap pilih file video atau folder dari File Manager!");
+                    throw new Error("No Video");
+                }
+                
+                const select = document.getElementById('videoSelect');
+                const selectedOpt = select.options[select.selectedIndex];
+                const type = selectedOpt ? selectedOpt.getAttribute('data-type') : 'movie';
+
+                const newMovie = {
+                    id: generatedId,
+                    title: document.getElementById('title').value,
+                    category: document.getElementById('category').value || 'Movies',
+                    type: type,
+                    video_path: videoPath,
+                    sub_path: type === 'series' ? '' : document.getElementById('subSelect').value,
+                    cover: document.getElementById('coverUrl').value,
+                    background: document.getElementById('bgUrl').value
+                };
+
+                if (idVal) {
+                    const idx = movies.findIndex(m => m.id == parseInt(idVal));
+                    if(idx > -1) movies[idx] = newMovie;
+                } else {
+                    movies.push(newMovie);
+                }
+
+                await syncToServer();
+                resetForm();
+            } catch(err) {
+                if(err.message !== "No Video") alert("Gagal: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Simpan";
+            }
+        }
+
+        async function deleteMovie(id) {
+            if(!confirm("Yakin ingin menghapus film ini dari daftar?")) return;
+            movies = movies.filter(m => m.id !== id);
+            await syncToServer();
+        }
+
+        async function extractSubtitle() {
+            const videoPath = document.getElementById('videoSelect').value;
+            if(!videoPath) {
+                alert("Pilih video terlebih dahulu!");
+                return;
+            }
+            const status = document.getElementById('subStatus');
+            status.innerHTML = `<span class="text-yellow-400">⏳ Mengekstrak subtitle menggunakan FFmpeg... Harap tunggu.</span>`;
+            
+            try {
+                const res = await fetch('/api/movies/extract_sub', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({video_rel_path: videoPath})
+                });
+                const data = await res.json();
+                if(data.success) {
+                    status.innerHTML = `<span class="text-green-400">✅ Berhasil diekstrak: ${data.sub_path}</span>`;
+                    await loadFiles('Movies', 'subSelect');
+                    document.getElementById('subSelect').value = data.sub_path;
+                } else {
+                    status.innerHTML = `<span class="text-red-400">❌ ${data.error}</span>`;
+                }
+            } catch(e) {
+                status.innerHTML = `<span class="text-red-400">❌ Terjadi kesalahan jaringan.</span>`;
+            }
+        }
+
+        async function syncToServer() {
+            try {
+                await fetch('/api/movies', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(movies)
+                });
+                renderTable();
+            } catch(e) { alert("Gagal menyimpan ke server VPS!"); }
+        }
+
+        // Init
+        loadFiles('Movies', 'videoSelect');
+        loadFiles('Movies', 'subSelect');
+        fetchMovies();
+    </script>
+</body>
+</html>

@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, redirect, url_for, jsonify, request, send_from_directory, current_app
 from ..utils import login_required
-from ..config import NOTES_FILE, TASKS_FILE, OUTPUT_FOLDER, GAMES_FILE, NOTES_IMAGES_FOLDER, SAVES_FOLDER, GAME_IMAGES_FOLDER
+from ..config import NOTES_FILE, TASKS_FILE, OUTPUT_FOLDER, GAMES_FILE, NOTES_IMAGES_FOLDER, SAVES_FOLDER, GAME_IMAGES_FOLDER, MOVIES_FILE, FM_ROOT
 import os
 from werkzeug.utils import secure_filename
 import uuid
 import json
+import subprocess
+import re
 
 pages_bp = Blueprint('pages', __name__)
 
@@ -259,3 +261,83 @@ def update_time_played(game_id):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@pages_bp.route('/streaming', endpoint='streaming_dashboard')
+@login_required
+def streaming_dashboard():
+    return render_template('streaming.html')
+
+
+@pages_bp.route('/movies-admin', endpoint='movies_admin')
+@login_required
+def movies_admin():
+    return render_template('movies_admin.html')
+
+
+@pages_bp.route('/watch/<int:movie_id>', endpoint='watch_movie')
+@login_required
+def watch_movie(movie_id):
+    if os.path.exists(MOVIES_FILE):
+        with open(MOVIES_FILE, 'r', encoding='utf-8') as f:
+            movies = json.load(f)
+            movie = next((m for m in movies if m.get('id') == movie_id), None)
+            if movie:
+                return render_template('watch.html', movie=movie)
+    return "Movie not found", 404
+
+
+@pages_bp.route('/api/movies', methods=['GET', 'POST'])
+@login_required
+def api_movies():
+    if request.method == 'POST':
+        data = request.json
+        with open(MOVIES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        return jsonify({'success': True})
+    if os.path.exists(MOVIES_FILE):
+        with open(MOVIES_FILE, 'r', encoding='utf-8') as f:
+            return jsonify(json.load(f))
+    return jsonify([])
+
+
+@pages_bp.route('/api/movies/extract_sub', methods=['POST'])
+@login_required
+def extract_subtitle():
+    data = request.json
+    video_path = os.path.join(FM_ROOT, data.get('video_rel_path', '').lstrip('/'))
+    if not os.path.exists(video_path):
+        return jsonify({'success': False, 'error': 'Video tidak ditemukan'}), 404
+
+    # Extract to the same directory with .vtt extension
+    base, _ = os.path.splitext(video_path)
+    sub_path = f"{base}.vtt"
+    
+    # Run ffmpeg to extract subtitle (map 0:s:0)
+    ffmpeg_exe = os.path.join(current_app.root_path, '..', 'ffmpeg.exe')
+    if not os.path.exists(ffmpeg_exe):
+        ffmpeg_exe = 'ffmpeg' # fallback to system ffmpeg
+        
+    try:
+        cmd = [ffmpeg_exe, '-i', video_path, '-map', '0:s:0', '-y', sub_path]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if os.path.exists(sub_path):
+            rel_sub_path = os.path.relpath(sub_path, FM_ROOT).replace('\\', '/')
+            return jsonify({'success': True, 'sub_path': rel_sub_path})
+        return jsonify({'success': False, 'error': 'Gagal mengekstrak subtitle (mungkin tidak ada subtitle)'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'FFmpeg error: {str(e)}'})
+
+@pages_bp.route('/api/movies/stream')
+@login_required
+def stream_movie():
+    # Stream the file directly from File Manager, send_file handles range requests!
+    rel_path = request.args.get('path', '').lstrip('/')
+    abs_path = os.path.abspath(os.path.join(FM_ROOT, rel_path))
+    if not abs_path.startswith(os.path.abspath(FM_ROOT)):
+        return "Access denied", 403
+    if os.path.isfile(abs_path):
+        from flask import send_file
+        return send_file(abs_path)
+    return "Not found", 404
+
