@@ -1474,7 +1474,12 @@ async function uploadFiles(files) {
         document.getElementById(id+'_pct').textContent = pct + '%';
       };
       xhr.onload = () => {
-        document.getElementById(id+'_pct').textContent = '✅';
+        if (xhr.status >= 200 && xhr.status < 300) {
+          document.getElementById(id+'_pct').textContent = '✅';
+        } else {
+          document.getElementById(id+'_pct').textContent = '❌';
+          toast('Gagal mengunggah ' + file.name + ' (Status: ' + xhr.status + ')', 'error');
+        }
         res();
       };
       xhr.onerror = () => { document.getElementById(id+'_pct').textContent = '❌'; res(); };

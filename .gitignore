@@ -18,6 +18,7 @@ roms/
 static/file_manager/
 ffmpeg/
 ffmpeg.zip
+*.exe
 __pycache__/
 venv/
 

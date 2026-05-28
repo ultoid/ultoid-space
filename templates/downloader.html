@@ -1,126 +1,522 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="dim">
+<html lang="id" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ultoid Downloader</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
-        <script>
+    <script>
         const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Pengaturan spesifik layout yang belum tercover di u-class */
         body { 
-            background-color: var(--bg-base); 
-            color: var(--text-primary); 
+            background-color: #050505; 
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(220, 38, 38, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+            color: #f8fafc; 
+            font-family: 'Outfit', system-ui, sans-serif;
+            min-height: 100vh;
         }
+        
+        .glass-panel {
+            background: rgba(20, 20, 22, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        .input-glow {
+            transition: all 0.3s ease;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .input-glow:focus-within {
+            background: rgba(0,0,0,0.5);
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.3), 0 0 20px rgba(220, 38, 38, 0.1);
+            border-color: rgba(220, 38, 38, 0.6);
+        }
+
         .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+        /* Custom Options UI */
+        .option-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03);
+            cursor: pointer;
+        }
+        .option-card:hover:not(:disabled) {
+            border-color: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            transform: translateY(-2px);
+        }
+        
+        .format-card.active {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.15), rgba(153, 27, 27, 0.15));
+            border-color: #ef4444;
+            color: white;
+            box-shadow: 0 4px 20px rgba(220, 38, 38, 0.15);
+        }
+        
+        .res-card.active {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
+        }
+        .res-card.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+            filter: grayscale(100%);
+        }
+
+        /* Video Preview Polish */
+        .preview-img-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.75rem;
+            aspect-ratio: 16/9;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+        .preview-img-container::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+            border-radius: 0.75rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            border: 1px solid #ef4444;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+
+        .pulse-ring {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+            border: 2px solid #ef4444;
+        }
+        @keyframes pulse-ring {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+
+        /* Tab Styles */
+        .tab-btn {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: #ef4444;
+            transition: width 0.3s ease;
+            border-radius: 2px;
+        }
+        .tab-btn.active {
+            color: white;
+            font-weight: 600;
+        }
+        .tab-btn.active::after {
+            width: 100%;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col selection:bg-red-500 selection:text-white">
+<body class="selection:bg-red-500 selection:text-white">
 
-    <nav class="u-glass sticky top-0 z-50 w-full px-5 py-3" style="border-radius:0; border-top:none; border-left:none; border-right:none; background: rgba(7,9,15,0.7);">
-        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div class="flex items-center gap-3 w-full sm:w-auto">
-                <a href="/space" title="Home" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-base">🤖</a>
-                <div class="w-px h-5 bg-white/10"></div>
-                <span class="text-sm font-semibold text-white/80 tracking-tight">Ultoid <span class="text-red-500">Downloader</span></span>
+    <!-- Top Navigation -->
+    <nav class="sticky top-0 z-50 w-full px-6 py-4 glass-panel border-x-0 border-t-0 rounded-none bg-black/40">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="/space" onclick="return checkExit(event, this.href)" title="Home" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xl shadow-lg">🤖</a>
+                <div class="h-6 w-px bg-white/10"></div>
+                <h1 class="text-lg font-bold tracking-wide">
+                    Ultoid <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-400">Downloader</span>
+                </h1>
             </div>
+            <a href="/dashboard" onclick="return checkExit(event, this.href)" class="hidden sm:flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+                <span>📁 File Manager</span>
+            </a>
         </div>
     </nav>
 
-    <main class="flex-1 flex flex-col items-center justify-center p-6 w-full">
-        <div class="max-w-3xl w-full">
-
-        <div class="u-glass p-8 rounded-3xl shadow-2xl">
-            
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-400 mb-2">Masukkan URL Video atau Playlist</label>
-                <input type="text" id="videoUrl" oninput="debouncePreview()" placeholder="https://www.youtube.com/watch?v=... atau &list=..." 
-                       class="u-input w-full px-4 py-3 text-white">
+    <!-- Custom Exit Modal -->
+    <div id="exitModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div class="glass-panel p-6 sm:p-8 rounded-3xl shadow-2xl max-w-sm w-full animate-[fadeIn_0.2s_ease-out]">
+            <h3 class="text-xl font-bold text-white mb-2">Sedang Download!</h3>
+            <p class="text-gray-400 text-sm mb-6">Anda yakin ingin keluar? Tenang, proses akan tetap berjalan di background dan hasilnya bisa dicek di tab History nanti.</p>
+            <div class="flex gap-3">
+                <button onclick="closeExitModal()" class="flex-1 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-gray-300 font-medium transition">Batal</button>
+                <button onclick="confirmExit()" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium shadow-lg transition">Ya, Keluar</button>
             </div>
+        </div>
+    </div>
 
-            <div id="previewBox" class="hidden mb-6 bg-black/40 rounded-xl p-4 flex gap-4 items-center border border-white/10 shadow-inner">
-                <img id="previewThumb" src="" class="w-24 h-24 sm:w-32 sm:h-24 object-cover rounded-lg bg-gray-800 shadow-md">
-                <div class="flex-1 min-w-0">
-                    <h3 id="previewTitle" class="font-bold text-sm sm:text-base text-white truncate mb-1">Memuat informasi...</h3>
-                    <p id="previewDuration" class="text-xs text-red-400 font-medium">...</p>
-                </div>
-            </div>
-
-            <div id="playlistBox" class="hidden mb-6 bg-black/40 rounded-xl p-5 border border-white/10 shadow-inner">
-                <div class="flex justify-between items-end mb-4">
-                    <div class="min-w-0 flex-1 pr-4">
-                        <h3 class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">📂 Ditemukan Playlist</h3>
-                        <p id="playlistTitle" class="font-bold text-white truncate">Memuat Playlist...</p>
-                    </div>
-                    <button onclick="startDownload(null, true)" class="u-btn u-btn-primary py-2 px-4 rounded-lg transition text-sm whitespace-nowrap shadow-lg">
-                        Unduh Semua (Playlist)
-                    </button>
-                </div>
-                
-                <div id="playlistContainer" class="custom-scroll max-h-60 overflow-y-auto space-y-2 pr-2 border-t border-white/10 pt-3">
-                    </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-2">Pilih Format</label>
-                    <select id="downloadType" onchange="toggleResolution()" class="u-input w-full px-3 py-2.5 text-sm appearance-none">
-                        <option value="video" class="text-black">Video (MP4)</option>
-                        <option value="audio" class="text-black">Audio (MP3)</option>
-                    </select>
-                </div>
-                <div id="resContainer">
-                    <label class="block text-xs font-medium text-gray-500 mb-2">Resolusi Maksimal</label>
-                    <select id="videoRes" class="u-input w-full px-3 py-2.5 text-sm appearance-none">
-                        <option value="best" class="font-bold text-red-600 bg-white">Kualitas Max (4K+)</option>
-                        <option value="1080" class="text-black">1080p (Full HD)</option>
-                        <option value="720" selected class="text-black">720p (HD)</option>
-                        <option value="480" class="text-black">480p</option>
-                    </select>
-                </div>
-            </div>
-
-            <button onclick="startDownload()" id="btnDownload"
-                    class="u-btn u-btn-primary w-full py-3 rounded-xl transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
-                Mulai Download
+    <main class="flex-1 flex flex-col items-center p-4 sm:p-8 w-full mt-2 sm:mt-6 mb-20">
+        
+        <!-- Tabs -->
+        <div class="flex items-center gap-6 mb-6 glass-panel px-8 py-3 rounded-full shadow-lg">
+            <button onclick="switchTab('downloader')" id="tabDownloader" class="tab-btn active text-gray-400 hover:text-gray-200">
+                🚀 Downloader
+            </button>
+            <button onclick="switchTab('history')" id="tabHistory" class="tab-btn text-gray-400 hover:text-gray-200">
+                📁 History
             </button>
         </div>
 
-        <div id="progressBox" class="mt-6 u-glass p-6 rounded-3xl hidden">
-            <div id="statusText" class="text-sm text-gray-300 mb-4 font-mono truncate">Menunggu perintah...</div>
-            <div class="w-full bg-white/10 rounded-full h-2 mb-6">
-                <div id="progressBar" class="bg-red-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        <div class="max-w-4xl w-full">
+
+            <!-- TAB 1: DOWNLOADER -->
+            <div id="contentDownloader" class="glass-panel p-1 rounded-3xl shadow-2xl mb-8 animate-[fadeIn_0.3s_ease-out]">
+                <div class="bg-black/20 p-6 sm:p-10 rounded-[22px]">
+                    
+                    <div class="text-center mb-10">
+                        <h2 class="text-3xl sm:text-4xl font-bold mb-3 text-white">Download Media</h2>
+                        <p class="text-gray-400 text-sm sm:text-base">Paste tautan video atau playlist dari YouTube, Twitter, dsb.</p>
+                    </div>
+
+                    <!-- URL Input -->
+                    <div class="relative group mb-8">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-gray-400 group-focus-within:text-red-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        </div>
+                        <input type="text" id="videoUrl" oninput="debouncePreview()" 
+                               placeholder="https://youtube.com/watch?v=..." 
+                               class="input-glow w-full pl-12 pr-4 py-4 rounded-2xl text-white outline-none text-sm sm:text-base font-medium">
+                    </div>
+
+                    <!-- Hidden Inputs for logic -->
+                    <input type="hidden" id="downloadType" value="video">
+                    <input type="hidden" id="videoRes" value="720">
+
+                    <!-- Preview Section -->
+                    <div id="previewBox" class="hidden mb-8 animate-[fadeIn_0.3s_ease-out]">
+                        <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center">
+                            <div class="preview-img-container w-full sm:w-48 shrink-0 bg-black/50">
+                                <img id="previewThumb" src="" class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex-1 min-w-0 py-1">
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 text-xs font-semibold text-gray-300 mb-2 border border-white/5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                                    Ditemukan
+                                </div>
+                                <h3 id="previewTitle" class="font-bold text-base sm:text-lg text-white mb-2 line-clamp-2 leading-tight">Memuat informasi...</h3>
+                                <p id="previewDuration" class="text-sm text-red-400 font-medium flex items-center gap-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>...</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playlist Section -->
+                    <div id="playlistBox" class="hidden mb-8 animate-[fadeIn_0.3s_ease-out]">
+                        <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-5">
+                                <div class="min-w-0 flex-1">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 text-xs font-semibold text-blue-400 mb-2 border border-blue-500/20">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                        Playlist
+                                    </div>
+                                    <h3 id="playlistTitle" class="font-bold text-lg sm:text-xl text-white truncate">Memuat Playlist...</h3>
+                                </div>
+                                <button onclick="startDownload(null, true)" class="btn-primary py-2.5 px-5 rounded-xl text-sm whitespace-nowrap flex items-center gap-2 shadow-lg">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    Unduh Semua
+                                </button>
+                            </div>
+                            
+                            <div id="playlistContainer" class="custom-scroll max-h-64 overflow-y-auto pr-2 space-y-2 border-t border-white/5 pt-4">
+                                <!-- Playlist Items Inject Here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Options Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8">
+                        
+                        <!-- Format Selection -->
+                        <div class="md:col-span-5">
+                            <label class="block text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                                Format File
+                            </label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div onclick="setFormat('video')" id="btnFormatVideo" class="option-card format-card active rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 text-center">
+                                    <span class="text-2xl">🎬</span>
+                                    <span class="font-semibold text-sm">Video (MP4)</span>
+                                </div>
+                                <div onclick="setFormat('audio')" id="btnFormatAudio" class="option-card format-card rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 text-center text-gray-400">
+                                    <span class="text-2xl">🎵</span>
+                                    <span class="font-semibold text-sm">Audio (MP3)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resolution Selection -->
+                        <div class="md:col-span-7" id="resSection">
+                            <label class="block text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                                Kualitas Video (Max)
+                            </label>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                                <div onclick="setResolution('best')" id="btnResBest" class="option-card res-card rounded-xl p-2.5 sm:p-3 flex flex-col items-center justify-center text-center text-gray-400">
+                                    <span class="font-bold text-sm sm:text-base">Max</span>
+                                    <span class="text-[10px] sm:text-xs opacity-70">4K / Terbaik</span>
+                                </div>
+                                <div onclick="setResolution('1080')" id="btnRes1080" class="option-card res-card rounded-xl p-2.5 sm:p-3 flex flex-col items-center justify-center text-center text-gray-400">
+                                    <span class="font-bold text-sm sm:text-base">1080p</span>
+                                    <span class="text-[10px] sm:text-xs opacity-70">Full HD</span>
+                                </div>
+                                <div onclick="setResolution('720')" id="btnRes720" class="option-card res-card active rounded-xl p-2.5 sm:p-3 flex flex-col items-center justify-center text-center">
+                                    <span class="font-bold text-sm sm:text-base">720p</span>
+                                    <span class="text-[10px] sm:text-xs opacity-70">HD (Cepat)</span>
+                                </div>
+                                <div onclick="setResolution('480')" id="btnRes480" class="option-card res-card rounded-xl p-2.5 sm:p-3 flex flex-col items-center justify-center text-center text-gray-400">
+                                    <span class="font-bold text-sm sm:text-base">480p</span>
+                                    <span class="text-[10px] sm:text-xs opacity-70">Standar</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Download Button -->
+                    <button onclick="startDownload()" id="btnDownload"
+                            class="btn-primary w-full py-4 rounded-2xl text-base sm:text-lg flex items-center justify-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span>Mulai Download</span>
+                    </button>
+                    
+                </div>
             </div>
 
-            <div id="actionBox" class="hidden flex flex-col sm:flex-row gap-3">
-                <a id="btnDirectDownload" href="#" class="u-btn u-btn-primary flex-1 text-center py-2.5 rounded-xl transition text-sm shadow-lg">
-                    ⬇️ Unduh Langsung
-                </a>
-                <a href="/dashboard" class="u-btn u-btn-ghost flex-1 text-center py-2.5 rounded-xl transition text-sm">
-                    🗂️ Buka File Manager
-                </a>
+            <!-- TAB 2: HISTORY -->
+            <div id="contentHistory" class="hidden glass-panel p-1 rounded-3xl shadow-2xl mb-8 animate-[fadeIn_0.3s_ease-out]">
+                <div class="bg-black/20 p-6 sm:p-10 rounded-[22px]">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 class="text-2xl sm:text-3xl font-bold mb-2 text-white">Riwayat Unduhan</h2>
+                            <p class="text-gray-400 text-sm">File yang pernah Anda unduh di server.</p>
+                        </div>
+                        <button onclick="loadHistory()" class="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10" title="Refresh Riwayat">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        </button>
+                    </div>
+
+                    <div id="historyContainer" class="custom-scroll max-h-[400px] overflow-y-auto pr-2 space-y-3">
+                        <div class="text-center text-gray-400 py-10">Memuat riwayat...</div>
+                    </div>
+                </div>
             </div>
-        </div>
+
+            <!-- Progress Box (Muncul saat download) -->
+            <div id="progressBox" class="glass-panel p-6 sm:p-8 rounded-3xl hidden transform transition-all duration-500 scale-95 opacity-0">
+                <div class="flex items-center gap-3 mb-5">
+                    <div class="relative w-4 h-4 flex items-center justify-center">
+                        <div class="w-2 h-2 bg-red-500 rounded-full z-10"></div>
+                        <div class="pulse-ring"></div>
+                    </div>
+                    <div id="statusText" class="text-sm sm:text-base text-gray-300 font-mono truncate">Menyiapkan unduhan...</div>
+                </div>
+
+                <div class="w-full bg-black/40 border border-white/5 rounded-full h-3 mb-8 overflow-hidden relative">
+                    <div class="absolute inset-0 bg-white/5"></div>
+                    <div id="progressBar" class="bg-gradient-to-r from-red-600 to-red-400 h-full rounded-full transition-all duration-300 relative shadow-[0_0_10px_rgba(220,38,38,0.5)]" style="width: 0%"></div>
+                </div>
+
+                <div id="actionBox" class="hidden flex flex-col sm:flex-row gap-3">
+                    <a id="btnDirectDownload" href="#" class="btn-primary flex-1 text-center py-3 rounded-xl transition text-sm flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Unduh ke Perangkat
+                    </a>
+                    <a href="/dashboard" class="flex-1 text-center py-3 rounded-xl transition text-sm font-semibold border border-white/10 hover:bg-white/5 hover:border-white/20 text-white flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                        Lihat di File Manager
+                    </a>
+                </div>
+            </div>
+
         </div>
     </main>
 
     <script>
-        function toggleResolution() {
-            const type = document.getElementById('downloadType').value;
-            const resContainer = document.getElementById('resContainer');
-            resContainer.style.opacity = (type === 'audio') ? '0.3' : '1';
-            document.getElementById('videoRes').disabled = (type === 'audio');
+        // State untuk mencegah user keluar saat download
+        let isDownloading = false;
+        let pendingExitUrl = '';
+
+        window.addEventListener('beforeunload', function (e) {
+            if (isDownloading) {
+                // Standar untuk memunculkan prompt warning di browser modern (saat reload/close tab)
+                e.preventDefault();
+                e.returnValue = ''; 
+            }
+        });
+
+        // Kustom Pop-up saat klik tombol navigasi website
+        function checkExit(event, url) {
+            if (isDownloading) {
+                event.preventDefault();
+                pendingExitUrl = url;
+                document.getElementById('exitModal').classList.remove('hidden');
+                return false;
+            }
+            return true;
         }
 
+        function closeExitModal() {
+            document.getElementById('exitModal').classList.add('hidden');
+            pendingExitUrl = '';
+        }
+
+        function confirmExit() {
+            if (pendingExitUrl) {
+                isDownloading = false; // Matikan state agar beforeunload tidak muncul ganda
+                window.location.href = pendingExitUrl;
+            }
+        }
+
+        // Tab Logic
+        function switchTab(tab) {
+            document.getElementById('tabDownloader').classList.toggle('active', tab === 'downloader');
+            document.getElementById('tabDownloader').classList.toggle('text-gray-400', tab !== 'downloader');
+            document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
+            document.getElementById('tabHistory').classList.toggle('text-gray-400', tab !== 'history');
+
+            if (tab === 'downloader') {
+                document.getElementById('contentDownloader').classList.remove('hidden');
+                document.getElementById('contentHistory').classList.add('hidden');
+            } else {
+                document.getElementById('contentDownloader').classList.add('hidden');
+                document.getElementById('contentHistory').classList.remove('hidden');
+                loadHistory(); // otomatis muat ulang history saat tab dibuka
+            }
+        }
+
+        // History Logic
+        async function loadHistory() {
+            const container = document.getElementById('historyContainer');
+            container.innerHTML = '<div class="text-center text-gray-400 py-10"><span class="animate-pulse">Memuat riwayat...</span></div>';
+            
+            try {
+                const response = await fetch('/api/download-history');
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-500 py-10">Belum ada file yang diunduh.</div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                data.forEach(file => {
+                    const icon = file.filename.startsWith('Audio') ? '🎵' : '🎬';
+                    let visualMedia = `<div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-xl flex-shrink-0">${icon}</div>`;
+                    if (file.thumbnail) {
+                        visualMedia = `<img src="${file.thumbnail}" alt="thumb" class="w-16 h-10 object-cover rounded-lg flex-shrink-0 border border-white/10 shadow-md" onerror="this.outerHTML='<div class=\\'w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-xl flex-shrink-0\\'>${icon}</div>'">`;
+                    }
+
+                    container.innerHTML += `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-black/30 p-4 rounded-xl border border-white/5 hover:bg-white/5 transition gap-4">
+                            <div class="flex items-start sm:items-center gap-4 overflow-hidden">
+                                ${visualMedia}
+                                <div class="min-w-0">
+                                    <h4 class="text-white text-sm sm:text-base font-medium truncate mb-1" title="${file.filename}">${file.filename}</h4>
+                                    <div class="flex items-center gap-3 text-xs text-gray-400">
+                                        <span>🕒 ${file.time}</span>
+                                        <span>📦 ${file.size_mb} MB</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <a href="/download_admin/${file.filename}" class="flex-shrink-0 btn-primary px-4 py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 whitespace-nowrap shadow-md">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Unduh Ulang
+                            </a>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                container.innerHTML = '<div class="text-center text-red-400 py-10">Gagal memuat riwayat.</div>';
+            }
+        }
+
+        // Custom UI State Logic
+        function setFormat(format) {
+            document.getElementById('downloadType').value = format;
+            
+            // Update UI
+            document.getElementById('btnFormatVideo').classList.toggle('active', format === 'video');
+            document.getElementById('btnFormatVideo').classList.toggle('text-gray-400', format !== 'video');
+            
+            document.getElementById('btnFormatAudio').classList.toggle('active', format === 'audio');
+            document.getElementById('btnFormatAudio').classList.toggle('text-gray-400', format !== 'audio');
+
+            // Handle Resolution State
+            const resCards = document.querySelectorAll('.res-card');
+            const resSection = document.getElementById('resSection');
+            
+            if (format === 'audio') {
+                resSection.style.opacity = '0.5';
+                resCards.forEach(c => c.classList.add('disabled'));
+            } else {
+                resSection.style.opacity = '1';
+                resCards.forEach(c => c.classList.remove('disabled'));
+            }
+        }
+
+        function setResolution(res) {
+            if (document.getElementById('downloadType').value === 'audio') return;
+            
+            document.getElementById('videoRes').value = res;
+            
+            // Update UI
+            const resMap = ['best', '1080', '720', '480'];
+            resMap.forEach(r => {
+                const btn = document.getElementById('btnRes' + r.charAt(0).toUpperCase() + r.slice(1));
+                if(btn) {
+                    btn.classList.toggle('active', r === res);
+                    btn.classList.toggle('text-gray-400', r !== res);
+                }
+            });
+        }
+
+        // Preview Logic
         let previewTimeout = null;
         function debouncePreview() {
             clearTimeout(previewTimeout);
-            previewTimeout = setTimeout(fetchPreview, 1000);
+            previewTimeout = setTimeout(fetchPreview, 800); 
         }
 
         async function fetchPreview() {
@@ -140,9 +536,9 @@
             previewBox.classList.remove('hidden');
             playlistBox.classList.add('hidden');
             btnMain.classList.remove('hidden');
-            document.getElementById('previewTitle').innerText = "🔍 Mencari informasi video...";
-            document.getElementById('previewThumb').src = "";
-            document.getElementById('previewDuration').innerText = "";
+            document.getElementById('previewTitle').innerText = "Mencari informasi video...";
+            document.getElementById('previewThumb').src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23222'/%3E%3C/svg%3E"; 
+            document.getElementById('previewDuration').innerHTML = "<span class='animate-pulse'>Menganalisa...</span>";
 
             try {
                 const response = await fetch('/preview-video', {
@@ -153,26 +549,28 @@
                 const data = await response.json();
                 
                 if (data.error) {
-                    document.getElementById('previewTitle').innerText = "❌ Video/Playlist tidak valid";
+                    document.getElementById('previewTitle').innerText = "⚠️ Tautan tidak valid atau tidak didukung";
+                    document.getElementById('previewDuration').innerHTML = "Periksa kembali URL Anda";
                 } else if (data.type === 'playlist') {
                     // TAMPILAN PLAYLIST
                     previewBox.classList.add('hidden');
-                    btnMain.classList.add('hidden'); // Sembunyikan tombol utama agar user pakai tombol playlist
+                    btnMain.classList.add('hidden');
                     playlistBox.classList.remove('hidden');
                     
                     document.getElementById('playlistTitle').innerText = `${data.title} (${data.entries.length} Video)`;
                     
                     const container = document.getElementById('playlistContainer');
-                    container.innerHTML = ""; // Bersihkan list sebelumnya
+                    container.innerHTML = ""; 
                     
                     data.entries.forEach((vid, index) => {
                         container.innerHTML += `
-                            <div class="flex justify-between items-center bg-black/20 p-2.5 rounded-lg border border-white/5 hover:bg-black/40 transition">
-                                <span class="text-xs text-gray-300 truncate pr-4 flex-1">
-                                    <span class="text-red-500 font-bold mr-2">${index + 1}.</span>${vid.title}
-                                </span>
-                                <button onclick="startDownload('${vid.url}', false)" class="u-btn u-btn-ghost text-xs px-3 py-1.5 rounded-md transition whitespace-nowrap">
-                                    Unduh Ini
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5 hover:bg-white/5 transition gap-3">
+                                <div class="flex items-center gap-3 overflow-hidden">
+                                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-white/5 text-gray-400 text-xs flex items-center justify-center font-bold">${index + 1}</span>
+                                    <span class="text-sm text-gray-200 truncate" title="${vid.title}">${vid.title}</span>
+                                </div>
+                                <button onclick="startDownload('${vid.url}', false)" class="flex-shrink-0 text-xs px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-medium transition whitespace-nowrap border border-white/10 hover:border-white/20">
+                                    Unduh
                                 </button>
                             </div>
                         `;
@@ -182,38 +580,50 @@
                     // TAMPILAN VIDEO TUNGGAL
                     document.getElementById('previewTitle').innerText = data.title;
                     document.getElementById('previewThumb').src = data.thumbnail;
-                    document.getElementById('previewDuration').innerText = "⏱️ Durasi: " + data.duration;
+                    document.getElementById('previewDuration').innerHTML = `
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>${data.duration}</span>
+                    `;
                 }
             } catch (error) {
                 document.getElementById('previewTitle').innerText = "❌ Gagal memuat pratinjau";
+                document.getElementById('previewDuration').innerText = "Terjadi kesalahan jaringan.";
             }
         }
 
-        // Fungsi Download: Bisa untuk Main Input, Spesifik Video di Playlist, atau Full Playlist
         function startDownload(customUrl = null, isFullPlaylist = false) {
-            // Tentukan target URL
             const url = customUrl || document.getElementById('videoUrl').value;
             const type = document.getElementById('downloadType').value;
             const res = document.getElementById('videoRes').value;
             
-            if (!url) return alert("Masukkan URL dulu ya!");
+            if (!url) {
+                document.getElementById('videoUrl').focus();
+                return;
+            }
 
-            // UI Elements
             const btn = document.getElementById('btnDownload');
             const progressBox = document.getElementById('progressBox');
             const statusText = document.getElementById('statusText');
             const progressBar = document.getElementById('progressBar');
             const actionBox = document.getElementById('actionBox');
 
-            // Reset & Kunci UI
+            // Reset & Lock UI
             btn.disabled = true;
+            isDownloading = true; // AKTIFKAN WARNING EXIT TAB
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Memproses...`;
+            
             progressBox.classList.remove('hidden');
+            setTimeout(() => {
+                progressBox.classList.remove('scale-95', 'opacity-0');
+                progressBox.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
             actionBox.classList.add('hidden');
             
             if (isFullPlaylist) {
-                statusText.innerHTML = "📦 Memulai antrean Playlist. Harap bersabar...";
+                statusText.innerHTML = "Menganalisa playlist dan antrean...";
             } else {
-                statusText.innerText = "Membuka jalur server...";
+                statusText.innerText = "Menghubungkan ke server...";
             }
             
             progressBar.style.width = "2%";
@@ -229,6 +639,8 @@
                     progressBar.style.width = percent + "%";
                     if (isFullPlaylist && currentFile) {
                         statusText.innerText = `Mengunduh: ${currentFile} (${percent}%)`;
+                    } else {
+                        statusText.innerText = `Mengunduh media... ${percent}%`;
                     }
                 } 
                 else if (event.data.startsWith("DONE|")) {
@@ -236,28 +648,30 @@
                     progressBar.style.width = "100%";
                     actionBox.classList.remove('hidden');
                     
-                    const directBtn = document.getElementById('btnDirectDownload');
-                    
+                    document.querySelector('.pulse-ring').style.display = 'none';
+                    document.querySelector('.w-2.h-2.bg-red-500').classList.replace('bg-red-500', 'bg-green-500');
+
                     if (status === "PLAYLIST") {
-                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Playlist Selesai!</span> Semua video tersimpan.`;
-                        // Sembunyikan Direct Download karena file-nya banyak
-                        directBtn.classList.add('hidden'); 
+                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Selesai!</span> Seluruh playlist telah diunduh.`;
+                        document.getElementById('btnDirectDownload').classList.add('hidden'); 
                     } else {
-                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Selesai!</span> Video berhasil diamankan.`;
-                        directBtn.classList.remove('hidden');
-                        directBtn.href = `/download_admin/${status}`;
+                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Selesai!</span> Media siap digunakan.`;
+                        document.getElementById('btnDirectDownload').classList.remove('hidden');
+                        document.getElementById('btnDirectDownload').href = `/download_admin/${status}`;
                     }
 
-                    btn.disabled = false;
+                    resetDownloadBtn();
+                    isDownloading = false; // MATIKAN WARNING EXIT TAB
                     eventSource.close();
                 } 
                 else if (event.data.startsWith("ERROR|")) {
-                    statusText.innerHTML = `<span class="text-red-400">❌ Error:</span> ${event.data.split("|")[1]}`;
-                    btn.disabled = false;
+                    document.querySelector('.pulse-ring').style.display = 'none';
+                    statusText.innerHTML = `<span class="text-red-400 font-bold">❌ Gagal:</span> ${event.data.split("|")[1]}`;
+                    resetDownloadBtn();
+                    isDownloading = false; // MATIKAN WARNING EXIT TAB
                     eventSource.close();
                 } 
                 else {
-                    // Update status text biasa (MSG|...)
                     statusText.innerText = event.data;
                 }
             };
@@ -265,8 +679,17 @@
             eventSource.onerror = function() {
                 statusText.innerHTML = `<span class="text-yellow-400">⚠️ Proses berjalan di latar belakang. Cek File Manager nanti.</span>`;
                 eventSource.close();
-                btn.disabled = false;
+                resetDownloadBtn();
+                isDownloading = false; // MATIKAN WARNING EXIT TAB
             };
+
+            function resetDownloadBtn() {
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span>Mulai Download</span>
+                `;
+            }
         }
     </script>
 </body>

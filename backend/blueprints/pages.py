@@ -101,7 +101,8 @@ def gmaps_detail_page():
 @pages_bp.route('/download_admin/<path:filename>', endpoint='download_admin')
 @login_required
 def download_admin(filename):
-    return send_from_directory(os.path.abspath(OUTPUT_FOLDER), filename, as_attachment=True)
+    download_folder = os.path.join(FM_ROOT, 'Download')
+    return send_from_directory(os.path.abspath(download_folder), filename, as_attachment=True)
 
 
 @pages_bp.route('/api/notes', methods=['GET', 'POST'])

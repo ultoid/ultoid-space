@@ -9,6 +9,8 @@ from bs4 import BeautifulSoup
 import requests
 import yt_dlp
 from ..utils import login_required
+from ..config import FM_ROOT
+from datetime import datetime
 
 scraper_bp = Blueprint('scraper', __name__)
 
@@ -110,3 +112,39 @@ def proxy_image():
         return Response(r.content, content_type=content_type, headers={'Cache-Control': 'public, max-age=86400'})
     except Exception as e:
         return str(e), 500
+
+@scraper_bp.route('/api/download-history')
+@login_required
+def download_history():
+    download_folder = os.path.join(FM_ROOT, 'Download')
+    if not os.path.exists(download_folder):
+        return jsonify([])
+    
+    files_data = []
+    for filename in os.listdir(download_folder):
+        filepath = os.path.join(download_folder, filename)
+        if os.path.isfile(filepath):
+            stat = os.stat(filepath)
+            size_mb = round(stat.st_size / (1024 * 1024), 2)
+            mod_time = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+            
+            thumbnail = ""
+            if "_Ultoid" in filename:
+                try:
+                    prefix = "Video_" if filename.startswith("Video_") else "Audio_"
+                    yt_id = filename.split(prefix)[1].split("_Ultoid")[0]
+                    thumbnail = f"https://img.youtube.com/vi/{yt_id}/mqdefault.jpg"
+                except Exception:
+                    pass
+
+            files_data.append({
+                'filename': filename,
+                'size_mb': size_mb,
+                'time': mod_time,
+                'timestamp': stat.st_mtime,
+                'thumbnail': thumbnail
+            })
+    
+    # Sort by newest first
+    files_data.sort(key=lambda x: x['timestamp'], reverse=True)
+    return jsonify(files_data)

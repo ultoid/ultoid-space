@@ -21,7 +21,7 @@ def create_app():
     app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-    app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB limit
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
     app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
