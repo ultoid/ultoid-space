@@ -9,18 +9,20 @@
         const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .hide-scroll::-webkit-scrollbar { display: none; }
         .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         #switchBg { transition: background-image 0.5s ease-in-out; }
+        .icon-filled { font-variation-settings: 'FILL' 1; }
         /* CATATAN: Styling .u-game-card dan .u-game-card.active sekarang diambil dari ultoid-theme.css! */
     </style>
 </head>
 <body class="bg-black text-white font-sans fixed inset-0 flex flex-col w-full overflow-hidden overscroll-none selection:bg-indigo-500 selection:text-white">
 
     <div id="loadingOverlay" class="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center text-white transition-opacity duration-500">
-        <div class="text-6xl animate-bounce mb-4">👾</div>
+        <span class="material-symbols-rounded text-6xl animate-bounce mb-4">sports_esports</span>
         <h2 class="text-xl font-bold animate-pulse">Menyiapkan Lobi...</h2>
     </div>
 
@@ -28,11 +30,14 @@
     <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/80 pointer-events-none"></div>
 
     <div class="relative z-10 flex justify-between items-center p-4 md:px-12 md:py-6 w-full flex-shrink-0">
-        <div></div> <div class="flex gap-3 md:gap-4 items-center text-white font-bold tracking-wide text-xs md:text-base drop-shadow-md">
-            <span id="switchClock">12:00 PM</span>
-            <span>📶</span>
-            <span>100% 🔋</span>
+        <div class="flex items-center gap-2 md:gap-3">
+            <span class="text-xl md:text-2xl drop-shadow-md leading-none">🎮</span>
+            <div class="w-px h-4 md:h-5 bg-white/20"></div>
+            <span class="text-xs md:text-sm font-bold text-white/90 tracking-wide drop-shadow-md">Ultoid <span class="text-indigo-400">Game Center</span></span>
         </div>
+        <a href="/game-admin" class="flex items-center justify-center gap-2 text-white hover:text-purple-400 transition font-medium text-sm md:text-base bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/40 rounded-xl px-3 py-2 md:px-5 md:py-2.5 shadow-md min-w-[3rem] min-h-[3rem]">
+            <span class="material-symbols-rounded icon-filled text-xl leading-none">settings</span> <span class="hidden sm:inline font-bold">Admin</span>
+        </a>
     </div>
 
     <div id="consoleFilters" class="relative z-10 flex gap-3 md:gap-4 overflow-x-auto hide-scroll justify-center px-4 py-2 w-full flex-shrink-0">
@@ -42,35 +47,33 @@
         <div class="w-full max-w-[220px] md:max-w-md relative">
             <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Cari game..." 
                    class="u-input w-full px-4 py-1.5 md:py-2 text-xs md:text-sm text-white pl-9 shadow-inner">
-            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs md:text-sm">🔍</span>
+            <span class="material-symbols-rounded absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm md:text-base">search</span>
         </div>
     </div>
 
     <div class="relative z-10 flex-1 flex flex-col justify-center overflow-hidden w-full min-h-0">
-        <div id="gameCarousel" class="flex gap-6 overflow-x-auto hide-scroll px-[50vw] snap-x snap-mandatory scroll-smooth items-center h-60 md:h-80 w-full touch-pan-x"></div>
+        <div id="gameCarousel" class="flex gap-6 overflow-x-auto hide-scroll px-[50vw] snap-x snap-mandatory scroll-smooth items-center h-56 md:h-72 w-full touch-pan-x"></div>
         
-        <div class="text-center mt-6 md:mt-8 transition-all duration-300 min-h-[5rem] md:min-h-[7rem] px-4 flex-shrink-0 flex flex-col justify-center items-center">
+        <div class="text-center mt-0 md:mt-2 transition-all duration-300 min-h-[5rem] md:min-h-[7rem] px-4 flex-shrink-0 flex flex-col justify-start items-center z-20">
             <h1 id="activeGameTitle" class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white drop-shadow-lg tracking-tight leading-normal pb-2 px-2 max-w-5xl text-wrap">Memuat...</h1>
             <p id="activeGameSystem" class="text-gray-400 mt-1 md:mt-2 font-medium tracking-widest uppercase text-[10px] md:text-sm drop-shadow-md">Console</p>
+            <p id="activeGameTimePlayed" class="text-green-400 mt-1 font-bold text-[10px] md:text-xs drop-shadow-md hidden"></p>
         </div>
     </div>
 
     <div class="relative z-10 flex justify-between items-center px-3 md:px-8 py-3 md:py-4 border-t border-white/20 bg-black/50 backdrop-blur-md w-full flex-shrink-0 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
         <div class="flex gap-2 md:gap-4">
             <a href="/space" class="flex items-center justify-center gap-2 text-white hover:text-red-400 transition font-medium text-sm md:text-base bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl px-3 py-2 md:px-5 md:py-2.5 shadow-md min-w-[3rem] min-h-[3rem]">
-                <span class="text-xl leading-none">🔙</span> <span class="hidden sm:inline font-bold">Space</span>
-            </a>
-            <a href="/game-admin" class="flex items-center justify-center gap-2 text-white hover:text-purple-400 transition font-medium text-sm md:text-base bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/40 rounded-xl px-3 py-2 md:px-5 md:py-2.5 shadow-md min-w-[3rem] min-h-[3rem]">
-                <span class="text-xl leading-none">⚙️</span> <span class="hidden sm:inline font-bold">Admin</span>
+                <span class="material-symbols-rounded text-xl leading-none">arrow_back</span> <span class="hidden sm:inline font-bold">Space</span>
             </a>
         </div>
         
         <div class="flex items-center gap-2 md:gap-4">
             <button onclick="toggleFavorite()" id="btnFavorite" class="flex items-center justify-center gap-2 text-white hover:text-pink-400 transition font-bold text-sm md:text-base cursor-pointer bg-black/40 hover:bg-black/60 border border-white/20 rounded-xl px-3 py-2 md:px-5 md:py-2.5 shadow-md min-w-[3rem] min-h-[3rem]">
-                <span class="text-xl leading-none">🤍</span> <span class="hidden sm:inline">Favorit</span>
+                <span class="material-symbols-rounded text-xl leading-none">favorite</span> <span class="hidden sm:inline">Favorit</span>
             </button>
             <button onclick="playActiveGame()" class="u-btn u-btn-primary flex items-center justify-center gap-2 text-white transition font-bold text-sm md:text-base cursor-pointer rounded-xl px-5 py-2 md:px-8 md:py-2.5 shadow-lg shadow-indigo-500/30 min-h-[3rem]">
-                <div class="w-6 h-6 md:w-7 md:h-7 rounded-full bg-white text-black flex items-center justify-center font-extrabold text-[10px] md:text-xs shadow-md border border-white leading-none">A</div> 
+                <span class="material-symbols-rounded icon-filled text-xl md:text-2xl leading-none">play_arrow</span>
                 <span class="hidden sm:inline tracking-wide">Mainkan</span><span class="sm:hidden tracking-wide">Play</span>
             </button>
         </div>
@@ -160,11 +163,11 @@
             
             const game = filteredGames[activeGameIndex];
             if(game.favorite) {
-                btn.innerHTML = `<span class="text-xl leading-none">❤️</span> <span class="hidden sm:inline">Difavoritkan</span>`;
+                btn.innerHTML = `<span class="material-symbols-rounded icon-filled text-xl leading-none">favorite</span> <span class="hidden sm:inline">Difavoritkan</span>`;
                 btn.classList.add('text-pink-400', 'border-pink-500/50', 'bg-pink-500/20');
                 btn.classList.remove('text-white', 'border-white/20', 'bg-black/40');
             } else {
-                btn.innerHTML = `<span class="text-xl leading-none">🤍</span> <span class="hidden sm:inline">Favorit</span>`;
+                btn.innerHTML = `<span class="material-symbols-rounded text-xl leading-none">favorite</span> <span class="hidden sm:inline">Favorit</span>`;
                 btn.classList.remove('text-pink-400', 'border-pink-500/50', 'bg-pink-500/20');
                 btn.classList.add('text-white', 'border-white/20', 'bg-black/40');
             }
@@ -174,9 +177,8 @@
             const container = document.getElementById('consoleFilters');
             container.innerHTML = '';
             
-            const systems = ['All', 'Favorites', ...new Set(allGames.map(g => g.system))];
-            // Menggunakan URL Repositori persis seperti file Master sebelumnya
-            const repoBase = "https://raw.githubusercontent.com/KyleBing/retro-game-console-icons/refs/heads/main/series_trimui/300w%401x/";
+            const systems = ['All', 'Played Recently', 'Favorites', ...new Set(allGames.map(g => g.system))];
+            const repoBase = "https://raw.githubusercontent.com/libretro/retroarch-assets/master/xmb/retrosystem/png/";
 
             systems.forEach(sys => {
                 const btn = document.createElement('button');
@@ -184,35 +186,37 @@
                 let iconContent = "";
                 
                 if(sys === 'All') {
-                    iconContent = `<span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xl md:text-2xl drop-shadow-lg leading-none mt-[2px]">🌟</span>`;
+                    iconContent = `<span class="material-symbols-rounded icon-filled text-xl md:text-2xl drop-shadow-lg leading-none">grid_view</span>`;
+                } else if(sys === 'Played Recently') {
+                    iconContent = `<span class="material-symbols-rounded text-xl md:text-2xl drop-shadow-lg leading-none">history</span>`;
                 } else if(sys === 'Favorites') {
-                    iconContent = `<span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xl md:text-2xl drop-shadow-lg leading-none mt-[2px]">❤️</span>`;
+                    iconContent = `<span class="material-symbols-rounded icon-filled text-xl md:text-2xl drop-shadow-lg leading-none">favorite</span>`;
                 } else {
                     let sysLower = sys.toLowerCase();
                     let iconFile = "MAME.png"; 
-                    if(sysLower.includes('gba') || sysLower.includes('advance')) iconFile = 'GBA.png';
-                    else if(sysLower.includes('gbc') || sysLower.includes('color')) iconFile = 'GBC.png';
-                    else if(sysLower.includes('gb') || sysLower.includes('gameboy')) iconFile = 'GB.png';
-                    else if(sysLower.includes('ps1') || sysLower.includes('psx') || sysLower.includes('playstation')) iconFile = 'PS.png';
-                    else if(sysLower.includes('n64')) iconFile = 'N64.png';
-                    else if(sysLower.includes('snes') || sysLower.includes('super')) iconFile = 'SFC.png'; 
-                    else if(sysLower.includes('nes') || sysLower.includes('famicom')) iconFile = 'FC.png';
-                    else if(sysLower.includes('nds') || sysLower.includes('ds')) iconFile = 'NDS.png';
-                    else if(sysLower.includes('psp')) iconFile = 'PSP.png';
-                    else if(sysLower.includes('md') || sysLower.includes('genesis')) iconFile = 'MD.png';
-                    else if(sysLower.includes('dc') || sysLower.includes('dreamcast')) iconFile = 'DC.png';
+                    if(sysLower.includes('gba') || sysLower.includes('advance')) iconFile = 'Nintendo - Game Boy Advance.png';
+                    else if(sysLower.includes('gbc') || sysLower.includes('color')) iconFile = 'Nintendo - Game Boy Color.png';
+                    else if(sysLower.includes('gb') || sysLower.includes('gameboy')) iconFile = 'Nintendo - Game Boy.png';
+                    else if(sysLower.includes('ps1') || sysLower.includes('psx') || sysLower.includes('playstation')) iconFile = 'Sony - PlayStation.png';
+                    else if(sysLower.includes('n64')) iconFile = 'Nintendo - Nintendo 64.png';
+                    else if(sysLower.includes('snes') || sysLower.includes('super')) iconFile = 'Nintendo - Super Nintendo Entertainment System.png'; 
+                    else if(sysLower.includes('nes') || sysLower.includes('famicom')) iconFile = 'Nintendo - Nintendo Entertainment System.png';
+                    else if(sysLower.includes('nds') || sysLower.includes('ds')) iconFile = 'Nintendo - Nintendo DS.png';
+                    else if(sysLower.includes('psp')) iconFile = 'Sony - PlayStation Portable.png';
+                    else if(sysLower.includes('md') || sysLower.includes('genesis')) iconFile = 'Sega - Mega Drive - Genesis.png';
+                    else if(sysLower.includes('dc') || sysLower.includes('dreamcast')) iconFile = 'Sega - Dreamcast.png';
                     
-                    iconContent = `<img src="${repoBase}${iconFile}" alt="${sys}" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-md mt-1" onerror="this.outerHTML='<span class=\\'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xl leading-none\\'>🎮</span>'">`;
+                    iconContent = `<img src="${repoBase}${iconFile}" alt="${sys}" class="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-md" onerror="this.outerHTML='<span class=\\'material-symbols-rounded text-xl leading-none\\'>sports_esports</span>'">`;
                 }
 
-                btn.className = `flex flex-col items-center gap-1 transition-all transform hover:scale-110 ${isActive ? 'opacity-100 scale-110' : 'opacity-50'} flex-shrink-0`;
+                btn.className = `flex flex-col items-center gap-1 transition-all transform hover:scale-110 ${isActive ? 'opacity-100 scale-110' : 'opacity-50'} flex-shrink-0 w-16 md:w-24`;
                 btn.onclick = () => applyFilter(sys);
                 
                 btn.innerHTML = `
-                    <div class="w-10 h-10 md:w-14 md:h-14 rounded-full border-2 ${isActive ? (sys === 'Favorites' ? 'border-pink-400 bg-pink-500/30' : 'border-blue-400 bg-blue-500/30') : 'border-white/30 bg-black/50'} relative shadow-lg backdrop-blur-md overflow-hidden">
+                    <div class="w-10 h-10 md:w-14 md:h-14 rounded-full border-2 ${isActive ? ((sys === 'Favorites' || sys === 'Played Recently') ? 'border-pink-400 bg-pink-500/30' : 'border-blue-400 bg-blue-500/30') : 'border-white/30 bg-black/50'} shadow-lg backdrop-blur-md overflow-hidden flex items-center justify-center flex-shrink-0">
                         ${iconContent}
                     </div>
-                    <span class="text-[9px] md:text-xs font-bold tracking-wider ${isActive ? (sys === 'Favorites' ? 'text-pink-300' : 'text-blue-300') : 'text-gray-400'} mt-0.5">${sys === 'Favorites' ? 'Favorit' : sys}</span>
+                    <span class="text-[9px] md:text-xs font-bold tracking-wider ${isActive ? ((sys === 'Favorites' || sys === 'Played Recently') ? 'text-pink-300' : 'text-blue-300') : 'text-gray-400'} mt-0.5 text-center leading-tight break-words w-full">${sys === 'Favorites' ? 'Favorit' : (sys === 'Played Recently' ? 'Baru Dimainkan' : sys)}</span>
                 `;
                 container.appendChild(btn);
             });
@@ -224,6 +228,8 @@
             let tempGames = [];
             if (sys === 'Favorites') {
                 tempGames = allGames.filter(g => g.favorite === true);
+            } else if (sys === 'Played Recently') {
+                tempGames = allGames.filter(g => g.lastPlayed).sort((a, b) => new Date(b.lastPlayed) - new Date(a.lastPlayed));
             } else if (sys === 'All') {
                 tempGames = [...allGames];
             } else {
@@ -257,7 +263,7 @@
                 card.onclick = () => { if (activeGameIndex === index) playActiveGame(); else focusGame(index); };
                 card.id = `game-card-${index}`;
                 
-                const favBadge = game.favorite ? `<div class="absolute top-2 right-2 bg-pink-500/80 backdrop-blur text-white text-[10px] md:text-xs p-1 md:p-1.5 rounded-full shadow-lg z-20">❤️</div>` : '';
+                const favBadge = game.favorite ? `<div class="absolute top-2 right-2 bg-pink-500/80 backdrop-blur text-white text-[10px] md:text-xs p-1 md:p-1.5 rounded-full shadow-lg z-20 flex items-center justify-center"><span class="material-symbols-rounded icon-filled text-[12px] md:text-[14px]">favorite</span></div>` : '';
 
                 const imgSrc = game.cover && game.cover !== "" ? game.cover : "https://via.placeholder.com/300x400/1e293b/ffffff?text=Mengunduh...";
                 card.innerHTML = `${favBadge}<img src="${imgSrc}" class="w-full h-full object-cover pointer-events-none" alt="${game.title}">`;
@@ -280,6 +286,21 @@
             const game = filteredGames[index];
             document.getElementById('activeGameTitle').innerText = game.title;
             document.getElementById('activeGameSystem').innerText = game.system;
+            
+            const timePlayedEl = document.getElementById('activeGameTimePlayed');
+            if (game.timePlayed) {
+                let hrs = Math.floor(game.timePlayed / 3600);
+                let mins = Math.floor((game.timePlayed % 3600) / 60);
+                let text = "<span class='material-symbols-rounded align-middle text-[1em]'>schedule</span> Waktu Main: ";
+                if (hrs > 0) text += hrs + " jam ";
+                text += mins + " mnt";
+                if (hrs === 0 && mins === 0) text = "<span class='material-symbols-rounded align-middle text-[1em]'>schedule</span> Waktu Main: < 1 mnt";
+                timePlayedEl.innerHTML = text;
+                timePlayedEl.classList.remove('hidden');
+            } else {
+                timePlayedEl.classList.add('hidden');
+            }
+            
             const bgSrc = game.bg && game.bg !== "" ? `url('${game.bg}')` : 'none';
             document.getElementById('switchBg').style.backgroundImage = bgSrc;
             
@@ -312,7 +333,6 @@
 
         carousel.addEventListener('wheel', (evt) => { evt.preventDefault(); carousel.scrollLeft += evt.deltaY * 1.5; });
         function playActiveGame() { if(filteredGames.length > 0) window.open(filteredGames[activeGameIndex].playUrl, '_self'); }
-        setInterval(() => { document.getElementById('switchClock').innerText = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }, 1000);
 
         fetchGameDatabase();
     </script>

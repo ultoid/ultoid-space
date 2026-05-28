@@ -87,6 +87,33 @@
         // Bypass beforeunload flag when user intentionally exits
         let bypassUnloadWarning = false;
 
+        // Time tracking
+        const startTime = Date.now();
+        let timeSent = false;
+
+        function recordTimePlayed() {
+            if (timeSent) return;
+            timeSent = true;
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            if (elapsedSeconds > 0) {
+                const data = {
+                    timePlayed: elapsedSeconds,
+                    lastPlayed: new Date().toISOString()
+                };
+                fetch(`/api/emulator/update_time/{{ game.id }}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    keepalive: true
+                }).catch(e => console.error("Failed to update time played", e));
+            }
+        }
+
+        // Send time played if user unloads page through other means
+        window.addEventListener('beforeunload', (e) => {
+            recordTimePlayed();
+        });
+
         function showExitModal() {
             const modal = document.getElementById('exit-modal');
             const content = document.getElementById('exit-modal-content');
@@ -109,6 +136,7 @@
         }
 
         function exitWithoutSave() {
+            recordTimePlayed();
             bypassUnloadWarning = true;
             window.history.back();
         }
@@ -145,6 +173,7 @@
             
             // Tunggu sedikit agar request selesai lalu keluar
             setTimeout(() => {
+                recordTimePlayed();
                 bypassUnloadWarning = true;
                 window.history.back();
             }, 1000);

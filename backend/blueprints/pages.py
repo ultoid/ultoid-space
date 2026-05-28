@@ -231,3 +231,31 @@ def load_emulator_state(game_id):
     if os.path.exists(state_file):
         return send_from_directory(os.path.abspath(SAVES_FOLDER), f"{game_id}.state")
     return '', 404
+
+
+@pages_bp.route('/api/emulator/update_time/<int:game_id>', methods=['POST'])
+@login_required
+def update_time_played(game_id):
+    if not os.path.exists(GAMES_FILE):
+        return jsonify({'success': False, 'error': 'No games found'}), 404
+        
+    try:
+        data = request.json
+        time_played_increment = data.get('timePlayed', 0)
+        last_played = data.get('lastPlayed')
+        
+        with open(GAMES_FILE, 'r', encoding='utf-8') as f:
+            games = json.load(f)
+            
+        for game in games:
+            if game.get('id') == game_id:
+                game['timePlayed'] = game.get('timePlayed', 0) + time_played_increment
+                game['lastPlayed'] = last_played
+                break
+                
+        with open(GAMES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(games, f, ensure_ascii=False, indent=4)
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
