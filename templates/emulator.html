@@ -95,7 +95,7 @@
                 setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 300);
 
                 renderFilters();
-                applyFilter('All');
+                applyFilter('Played Recently');
                 backgroundScrapeAndSave();
             } catch(e) { console.error(e); }
         }
@@ -177,7 +177,7 @@
             const container = document.getElementById('consoleFilters');
             container.innerHTML = '';
             
-            const systems = ['All', 'Played Recently', 'Favorites', ...new Set(allGames.map(g => g.system))];
+            const systems = ['Played Recently', 'All', 'Favorites', ...new Set(allGames.map(g => g.system))];
             const repoBase = "https://raw.githubusercontent.com/libretro/retroarch-assets/master/xmb/retrosystem/png/";
 
             systems.forEach(sys => {
