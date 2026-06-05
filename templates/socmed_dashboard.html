@@ -234,6 +234,10 @@
 
             <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
 
+                <button id="btnForceKalkulasi" onclick="forceMonthlyDelta()" class="u-btn hover:bg-white/10 text-xs px-3 py-1.5" style="border: 1px solid var(--glass-border); display: flex; align-items: center; gap: 4px; border-radius: 8px;">
+                    <span>🔄</span> <span class="hidden sm:inline">Kalkulasi Manual</span>
+                </button>
+
                 <div class="pill-wrap">
                     <span style="font-size:13px">📅</span>
                     <select id="filterYear" onchange="updateMonthDropdown(); applyDualTimeFilter();">
@@ -418,6 +422,28 @@
     </main>
 
     <script>
+        async function forceMonthlyDelta() {
+            const btn = document.getElementById('btnForceKalkulasi');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<span class="spinner" style="width:14px; height:14px; border-width:2px; display:inline-block;"></span> <span class="hidden sm:inline">Memproses...</span>`;
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/socmed/force_monthly_delta', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Kalkulasi selesai!');
+                    window.location.reload();
+                } else {
+                    alert('Gagal: ' + data.error);
+                }
+            } catch (e) {
+                alert('Terjadi kesalahan jaringan.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
         Chart.register(ChartDataLabels);
 
         let globalIsHorizontal = false;

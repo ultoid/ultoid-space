@@ -1158,3 +1158,13 @@ def get_gmaps_reviews(business_id):
         'monthly_stats': monthly_stats,
         'historical_total': historical_total
     })
+
+@socmed_bp.route('/api/socmed/force_monthly_delta', methods=['POST'])
+@login_required
+def api_force_monthly_delta():
+    from ..cron import calculate_monthly_delta
+    try:
+        calculate_monthly_delta()
+        return jsonify({'success': True, 'message': 'Kalkulasi data bulanan berhasil dieksekusi.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
