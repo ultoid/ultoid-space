@@ -42,6 +42,15 @@ GAMES_FILE = os.path.join(DATA_FOLDER, 'games.json')
 SETTINGS_FILE = 'settings.json'
 SAVES_FOLDER = os.path.join(DATA_FOLDER, 'saves')
 MOVIES_FILE = os.path.join(DATA_FOLDER, 'movies.json')
+SHORTLINKS_FILE = os.path.join(DATA_FOLDER, 'shortlinks.json')
+SHORTLINK_DOMAIN = 'https://anugerahgmb.com'
+
+RESERVED_ROUTES = {
+    'login', 'logout', 'dashboard', 'space', 'api', 'static', 'templates',
+    'translate', 'downloader', 'wallpaper', 'socmed-dashboard',
+    'gmaps-analytic', 'qrcode', 'portfolio', 'task', 'notes', 'streaming',
+    'emulator', 'shortlink'
+}
 
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_LOCKOUT_SECONDS = 300

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dim">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shortlink Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        const savedTheme = localStorage.getItem('ultoid_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: var(--bg-base); 
+            color: var(--text-primary); 
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
+
+    <nav class="u-glass sticky top-0 z-50 w-full px-5 py-3" style="border-radius:0; border-top:none; border-left:none; border-right:none; background: rgba(7,9,15,0.7);">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <a href="/space" title="Home" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-base">🤖</a>
+                <div class="w-px h-5 bg-white/10"></div>
+                <span class="text-sm font-semibold text-white/80 tracking-tight">Ultoid <span class="text-blue-400">Shortlink</span></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex flex-col items-center p-6 w-full gap-8">
+        <!-- Generator Form -->
+        <div class="w-full max-w-3xl">
+            <div class="u-glass p-8 rounded-3xl shadow-2xl">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2"><span class="text-2xl">🔗</span> Buat Shortlink</h2>
+                
+                <form id="shortlinkForm" onsubmit="generateShortlink(event)">
+                    <input type="hidden" id="editId" value="">
+                    
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">URL Tujuan (Panjang)</label>
+                        <input type="url" id="longUrl" placeholder="https://example.com/very/long/url" required
+                               class="u-input w-full px-4 py-3 text-white">
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Deskripsi / Nama (Opsional)</label>
+                        <input type="text" id="linkDescription" placeholder="Contoh: Promo Diskon 2026"
+                               class="u-input w-full px-4 py-3 text-white">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Custom ID (Opsional)</label>
+                        <div class="flex items-stretch gap-0 border border-[var(--glass-border)] rounded-xl overflow-hidden focus-within:border-blue-500 transition">
+                            <span class="bg-[var(--glass-bg)] px-4 flex items-center text-sm text-gray-400 border-r border-[var(--glass-border)]">anugerahgmb.com/</span>
+                            <input type="text" id="customId" placeholder="custom-nama" 
+                                   class="bg-transparent text-white px-4 py-3 w-full outline-none">
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Kosongkan jika ingin ID acak 5 digit.</p>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="submit" id="btnSubmit" class="u-btn u-btn-primary flex-1 py-3 rounded-xl transition shadow-lg font-bold">
+                            Buat Shortlink
+                        </button>
+                        <button type="button" id="btnCancelEdit" onclick="cancelEdit()" class="u-btn u-btn-ghost py-3 px-6 rounded-xl transition hidden">
+                            Batal Edit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Gallery -->
+        <div class="w-full max-w-5xl">
+            <h2 class="text-lg font-bold mb-4 text-white/80 border-b border-white/10 pb-2">Daftar Shortlink Anda</h2>
+            <div id="listContainer" class="flex flex-col gap-4">
+                <div class="text-center text-gray-400 py-10">Memuat data...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 u-glass px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50">
+        <span id="toastIcon">✅</span>
+        <span id="toastMsg" class="text-sm font-medium text-white">Berhasil</span>
+    </div>
+
+    <script>
+        const DOMAIN = 'https://anugerahgmb.com/';
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            document.getElementById('toastIcon').innerText = isError ? '❌' : '✅';
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        async function copyUrl(url) {
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast("Tautan disalin ke clipboard!");
+            } catch (err) {
+                showToast("Gagal menyalin tautan", true);
+            }
+        }
+
+        function cancelEdit() {
+            document.getElementById('editId').value = '';
+            document.getElementById('shortlinkForm').reset();
+            document.getElementById('btnSubmit').innerText = 'Buat Shortlink';
+            document.getElementById('btnCancelEdit').classList.add('hidden');
+        }
+
+        async function loadLinks() {
+            const container = document.getElementById('listContainer');
+            try {
+                const res = await fetch('/api/shortlink/list');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-400 py-10 bg-black/20 rounded-2xl border border-white/5">Belum ada shortlink yang dibuat.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                data.forEach(item => {
+                    const date = new Date(item.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
+                    const fullUrl = DOMAIN + item.id;
+                    const card = document.createElement('div');
+                    card.className = 'u-glass p-5 rounded-2xl shadow-lg border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group transition-all hover:bg-white/5';
+                    
+                    const itemData = JSON.stringify(item).replace(/"/g, '&quot;');
+                    
+                    card.innerHTML = `
+                        <div class="flex-1 min-w-0 w-full">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h3 class="text-lg font-bold text-blue-400 truncate">${item.description || 'Tanpa Deskripsi'}</h3>
+                                <span class="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-gray-300">${item.clicks || 0} Klik</span>
+                            </div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <a href="${fullUrl}" target="_blank" class="text-sm text-white font-medium hover:underline truncate">${fullUrl}</a>
+                                <button onclick="copyUrl('${fullUrl}')" class="text-gray-400 hover:text-white transition p-1" title="Copy">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                </button>
+                            </div>
+                            <div class="text-xs text-gray-500 truncate flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                                ${item.url}
+                            </div>
+                            <div class="text-[10px] text-gray-600 mt-2">${date}</div>
+                        </div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button onclick="editLink('${itemData}')" class="flex-1 sm:flex-none u-btn u-btn-ghost text-xs py-2 px-4 rounded-xl transition" title="Edit">
+                                ✏️ Edit
+                            </button>
+                            <button onclick="deleteLink('${item.id}')" class="flex-1 sm:flex-none u-btn bg-red-500/20 hover:bg-red-500/40 text-red-400 text-xs py-2 px-4 rounded-xl transition" title="Hapus">
+                                🗑️ Hapus
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (e) {
+                container.innerHTML = '<div class="text-center text-red-400 py-10">Gagal memuat data.</div>';
+            }
+        }
+
+        function editLink(itemStr) {
+            const item = JSON.parse(itemStr);
+            document.getElementById('editId').value = item.id;
+            document.getElementById('longUrl').value = item.url;
+            document.getElementById('linkDescription').value = item.description || '';
+            document.getElementById('customId').value = item.id;
+            
+            document.getElementById('btnSubmit').innerText = 'Simpan Perubahan';
+            document.getElementById('btnCancelEdit').classList.remove('hidden');
+            
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        async function deleteLink(id) {
+            if(!confirm('Apakah Anda yakin ingin menghapus shortlink ini?')) return;
+            
+            try {
+                const res = await fetch('/api/shortlink/' + id, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('Shortlink dihapus');
+                    loadLinks();
+                } else {
+                    showToast('Gagal menghapus item.', true);
+                }
+            } catch(e) {
+                showToast('Terjadi kesalahan koneksi.', true);
+            }
+        }
+
+        async function generateShortlink(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('btnSubmit');
+            const originalText = btn.innerText;
+            btn.innerText = 'Memproses...';
+            btn.disabled = true;
+
+            const editId = document.getElementById('editId').value;
+            const formData = new FormData();
+            formData.append('url', document.getElementById('longUrl').value);
+            formData.append('description', document.getElementById('linkDescription').value);
+            formData.append('custom_id', document.getElementById('customId').value);
+
+            const url = editId ? `/api/shortlink/edit/${editId}` : '/api/shortlink/create';
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    cancelEdit();
+                    loadLinks();
+                    showToast(editId ? 'Perubahan disimpan!' : 'Shortlink berhasil dibuat!');
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || 'Gagal memproses', true);
+                }
+            } catch (err) {
+                showToast('Terjadi kesalahan koneksi.', true);
+            }
+
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLinks();
+        });
+    </script>
+</body>
+</html>
