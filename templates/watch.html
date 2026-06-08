@@ -94,12 +94,6 @@
         <div class="flex-1 flex flex-col">
             <div class="w-full aspect-video relative group bg-black/50 rounded-xl overflow-hidden">
                 <video id="player" playsinline controls data-poster="{{ movie.cover }}">
-                    {% if movie.type != 'series' %}
-                        <source src="/api/movies/stream?path={{ movie.video_path | urlencode }}" type="video/mp4" />
-                        {% if movie.sub_path %}
-                        <track kind="captions" label="Indonesia" srclang="id" src="/api/movies/stream?path={{ movie.sub_path | urlencode }}" default />
-                        {% endif %}
-                    {% endif %}
                 </video>
             </div>
             
@@ -135,27 +129,25 @@
     </script>
 
     <script src="{{ url_for('static', filename='js/plyr/plyr.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/plyr/hls.min.js') }}"></script>
     <script>
         let player = null;
+        let hlsInstance = null;
         let episodes = [];
         let subSizeLevel = parseInt(localStorage.getItem('ultoid_sub_size') || '0');
 
         function updateSubSize() {
             const baseMobile = 30;
             const baseDesktop = 40;
-            const step = 4; // 4px per tingkatan
-            
+            const step = 4;
             document.documentElement.style.setProperty('--sub-size-mobile', (baseMobile + (subSizeLevel * step)) + 'px');
             document.documentElement.style.setProperty('--sub-size-desktop', (baseDesktop + (subSizeLevel * step)) + 'px');
-            
             localStorage.setItem('ultoid_sub_size', subSizeLevel);
         }
 
         function injectSubtitleControls() {
             const menu = document.querySelector('.plyr__menu__container > div > div[id$="-home"] > [role="menu"]');
-            if (!menu) return;
-            
-            if (document.getElementById('customSubSizeControl')) return;
+            if (!menu || document.getElementById('customSubSizeControl')) return;
 
             const customItem = document.createElement('div');
             customItem.id = 'customSubSizeControl';
@@ -167,7 +159,6 @@
             customItem.style.fontWeight = '500';
             customItem.style.fontSize = '14px';
             customItem.style.borderTop = '1px solid rgba(0,0,0,0.05)';
-            
             customItem.innerHTML = `
                 <span>Ukuran Subtitle</span>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -178,14 +169,8 @@
             `;
             menu.appendChild(customItem);
 
-            document.getElementById('plyrBtnSubDec').addEventListener('click', (e) => {
-                e.stopPropagation(); e.preventDefault();
-                if (subSizeLevel > -5) { subSizeLevel--; updateSubSize(); updateMenuLabel(); }
-            });
-            document.getElementById('plyrBtnSubInc').addEventListener('click', (e) => {
-                e.stopPropagation(); e.preventDefault();
-                if (subSizeLevel < 5) { subSizeLevel++; updateSubSize(); updateMenuLabel(); }
-            });
+            document.getElementById('plyrBtnSubDec').addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (subSizeLevel > -5) { subSizeLevel--; updateSubSize(); updateMenuLabel(); } });
+            document.getElementById('plyrBtnSubInc').addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (subSizeLevel < 5) { subSizeLevel++; updateSubSize(); updateMenuLabel(); } });
             
             function updateMenuLabel() {
                 const label = document.getElementById('plyrSubSizeLabel');
@@ -199,49 +184,95 @@
 
         setInterval(injectSubtitleControls, 500);
 
+        async function setupPlayer(videoPath, subPath, title) {
+            const videoElement = document.getElementById('player');
+            const res = await fetch('/api/movies/check_hls?path=' + encodeURIComponent(videoPath));
+            const hlsData = await res.json();
+            
+            const defaultOptions = {
+                iconUrl: "{{ url_for('static', filename='js/plyr/plyr.svg') }}",
+                controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'fullscreen'],
+                settings: ['captions', 'quality', 'speed', 'loop'],
+                speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+                keyboard: { focused: true, global: true },
+                tooltips: { controls: true, seek: true },
+                i18n: { speed: 'Kecepatan', normal: 'Normal', captions: 'Subtitle', disabled: 'Mati', enabled: 'Nyala', quality: 'Kualitas' }
+            };
+
+            if (player) { player.destroy(); player = null; }
+            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+            
+            videoElement.innerHTML = ''; // clear native tracks
+            const videoSrcUrl = '/api/movies/stream?path=' + encodeURIComponent(videoPath);
+            const subSrcUrl = subPath ? '/api/movies/stream?path=' + encodeURIComponent(subPath) : null;
+            
+            if (hlsData.hls) {
+                const hlsUrl = '/api/movies/stream?path=' + encodeURIComponent(hlsData.hls_path);
+                if (Hls.isSupported()) {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(hlsUrl);
+                    hlsInstance.attachMedia(videoElement);
+                    
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function () {
+                        const availableQualities = hlsInstance.levels.map((l) => l.height);
+                        availableQualities.unshift(0); // Auto
+                        defaultOptions.quality = {
+                            default: 0,
+                            options: availableQualities,
+                            forced: true,        
+                            onChange: (e) => {
+                                if(hlsInstance) {
+                                    if(e === 0) hlsInstance.currentLevel = -1;
+                                    else {
+                                        const li = hlsInstance.levels.findIndex(l => l.height === e);
+                                        hlsInstance.currentLevel = li;
+                                    }
+                                }
+                            }
+                        };
+                        
+                        player = new Plyr(videoElement, defaultOptions);
+                        const sources = [{ src: hlsUrl, type: 'application/x-mpegURL' }];
+                        const tracks = subSrcUrl ? [{ kind: 'captions', label: 'Indonesia', srclang: 'id', src: subSrcUrl, default: true }] : [];
+                        player.source = { type: 'video', title: title, sources, tracks };
+                        player.play().catch(()=>{});
+                    });
+                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                    player = new Plyr(videoElement, defaultOptions);
+                    const sources = [{ src: hlsUrl, type: 'application/x-mpegURL' }];
+                    const tracks = subSrcUrl ? [{ kind: 'captions', label: 'Indonesia', srclang: 'id', src: subSrcUrl, default: true }] : [];
+                    player.source = { type: 'video', title: title, sources, tracks };
+                    player.play().catch(()=>{});
+                }
+            } else {
+                player = new Plyr(videoElement, defaultOptions);
+                const sources = [{ src: videoSrcUrl, type: 'video/mp4' }];
+                const tracks = subSrcUrl ? [{ kind: 'captions', label: 'Indonesia', srclang: 'id', src: subSrcUrl, default: true }] : [];
+                player.source = { type: 'video', title: title, sources, tracks };
+                player.play().catch(()=>{});
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             updateSubSize();
-            
-            try {
-                if (typeof Plyr !== 'undefined') {
-                    player = new Plyr('#player', {
-                        iconUrl: "{{ url_for('static', filename='js/plyr/plyr.svg') }}",
-                        controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'fullscreen'],
-
-                        settings: ['captions', 'speed', 'loop'],
-                        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
-                        keyboard: { focused: true, global: true },
-                        tooltips: { controls: true, seek: true },
-                        i18n: { speed: 'Kecepatan', normal: 'Normal', captions: 'Subtitle', disabled: 'Mati', enabled: 'Nyala' }
-                    });
-                } else {
-                    console.error("Plyr script tidak termuat dari CDN.");
-                }
-            } catch (err) {
-                console.error("Plyr gagal dimuat, menggunakan pemutar bawaan:", err);
-            }
-
             if(movieData.type === 'series') {
                 await loadSeriesFolder();
+            } else {
+                setupPlayer(movieData.video_path, movieData.sub_path, movieData.title);
             }
         });
 
         async function loadSeriesFolder() {
             try {
-                // Fetch isi folder series
                 const res = await fetch(`/api/fm/list?path=${encodeURIComponent(movieData.video_path)}`);
                 const data = await res.json();
-                
-                // Pisahkan video dan subtitle
                 const videoFiles = [];
-                const subFiles = {}; // key: nama tanpa ekstensi, value: path
-
+                const subFiles = {};
                 if (data && data.files) {
                     data.files.forEach(f => {
                         const ext = f.name.split('.').pop().toLowerCase();
                         const nameWithoutExt = f.name.substring(0, f.name.lastIndexOf('.'));
                         const fullPath = `${movieData.video_path}/${f.name}`;
-                        
                         if(['mp4', 'mkv', 'webm'].includes(ext)) {
                             videoFiles.push({ name: f.name, path: fullPath, base: nameWithoutExt });
                         } else if(['vtt', 'srt'].includes(ext)) {
@@ -249,19 +280,8 @@
                         }
                     });
                 }
-
-                // Gabungkan video dengan subtitle jika base name nya sama
-                episodes = videoFiles.map(v => {
-                    return {
-                        title: v.name,
-                        video_path: v.path,
-                        sub_path: subFiles[v.base] || null
-                    };
-                });
-
+                episodes = videoFiles.map(v => { return { title: v.name, video_path: v.path, sub_path: subFiles[v.base] || null }; });
                 renderPlaylist();
-
-                // Auto-play episode berdasarkan history, atau episode pertama
                 if(episodes.length > 0) {
                     const history = JSON.parse(localStorage.getItem('ultoid_history') || '{}');
                     const savedIndex = history[movieData.id] ? history[movieData.id].episodeIndex : 0;
@@ -270,9 +290,7 @@
                 } else {
                     document.getElementById('playlist').innerHTML = '<div class="text-center text-sm text-red-400 py-10">Tidak ada video di folder ini.</div>';
                 }
-
             } catch(e) {
-                console.error(e);
                 const playlist = document.getElementById('playlist');
                 if (playlist) playlist.innerHTML = '<div class="text-center text-sm text-red-400 py-10">Gagal memuat folder series.</div>';
             }
@@ -283,24 +301,17 @@
             if(!listEl) return;
             document.getElementById('epCount').innerText = `${episodes.length} Video`;
             listEl.innerHTML = '';
-            
             episodes.forEach((ep, idx) => {
                 const hasSub = ep.sub_path ? '<span class="bg-yellow-500/20 text-yellow-500 text-[9px] px-1.5 py-0.5 rounded font-bold ml-2">CC</span>' : '';
-                
                 const card = document.createElement('div');
                 card.id = `ep-${idx}`;
                 card.className = 'ep-card flex items-center p-3 rounded-lg cursor-pointer hover:bg-white/10 group';
                 card.onclick = () => playEpisode(idx);
-                
                 card.innerHTML = `
-                    <div class="w-8 h-8 rounded bg-black/40 flex items-center justify-center text-xs font-bold text-gray-400 group-hover:text-white shrink-0">
-                        ${idx + 1}
-                    </div>
+                    <div class="w-8 h-8 rounded bg-black/40 flex items-center justify-center text-xs font-bold text-gray-400 group-hover:text-white shrink-0">${idx + 1}</div>
                     <div class="ml-3 flex-1 overflow-hidden">
                         <div class="text-sm font-semibold text-white truncate" title="${ep.title}">${ep.title}</div>
-                        <div class="text-xs text-gray-500 flex items-center mt-0.5">
-                            Episode ${idx + 1} ${hasSub}
-                        </div>
+                        <div class="text-xs text-gray-500 flex items-center mt-0.5">Episode ${idx + 1} ${hasSub}</div>
                     </div>
                     <div class="w-6 opacity-0 group-hover:opacity-100 text-white shrink-0 text-center text-xs">▶️</div>
                 `;
@@ -311,62 +322,20 @@
         function playEpisode(index) {
             const ep = episodes[index];
             if(!ep) return;
-
-            // Highlight playlist
             document.querySelectorAll('.ep-card').forEach(c => c.classList.remove('active'));
             const activeCard = document.getElementById(`ep-${index}`);
             if(activeCard) {
                 activeCard.classList.add('active');
                 activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
-
-            // Update title
             const titleEl = document.getElementById('currentEpisodeTitle');
             if (titleEl) titleEl.innerText = ep.title;
 
-            // Save to localStorage
             const history = JSON.parse(localStorage.getItem('ultoid_history') || '{}');
             history[movieData.id] = { episodeIndex: index };
             localStorage.setItem('ultoid_history', JSON.stringify(history));
 
-            const videoSrc = `/api/movies/stream?path=${encodeURIComponent(ep.video_path)}`;
-            
-            if (player && typeof Plyr !== 'undefined') {
-                // Gunakan Plyr API
-                const source = {
-                    type: 'video',
-                    title: ep.title,
-                    sources: [
-                        { src: videoSrc, type: 'video/mp4' }
-                    ]
-                };
-
-                if(ep.sub_path) {
-                    source.tracks = [
-                        { kind: 'captions', label: 'Indonesia', srclang: 'id', src: `/api/movies/stream?path=${encodeURIComponent(ep.sub_path)}`, default: true }
-                    ];
-                } else {
-                    source.tracks = []; // clear tracks
-                }
-
-                player.source = source;
-                player.play().catch(e => console.log('Autoplay prevented by browser', e));
-            } else {
-                // Pemutar bawaan browser
-                const videoEl = document.getElementById('player');
-                videoEl.src = videoSrc;
-                videoEl.innerHTML = '';
-                if(ep.sub_path) {
-                    const track = document.createElement('track');
-                    track.kind = 'captions';
-                    track.label = 'Indonesia';
-                    track.srclang = 'id';
-                    track.src = `/api/movies/stream?path=${encodeURIComponent(ep.sub_path)}`;
-                    track.default = true;
-                    videoEl.appendChild(track);
-                }
-                videoEl.play().catch(e => console.log('Autoplay prevented', e));
-            }
+            setupPlayer(ep.video_path, ep.sub_path, ep.title);
         }
     </script>
 </body>

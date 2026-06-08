@@ -43,7 +43,7 @@ SETTINGS_FILE = 'settings.json'
 SAVES_FOLDER = os.path.join(DATA_FOLDER, 'saves')
 MOVIES_FILE = os.path.join(DATA_FOLDER, 'movies.json')
 SHORTLINKS_FILE = os.path.join(DATA_FOLDER, 'shortlinks.json')
-SHORTLINK_DOMAIN = 'https://anugerahgmb.com'
+SHORTLINK_DOMAIN = 'https://anugerahgmb.com/s/'
 
 RESERVED_ROUTES = {
     'login', 'logout', 'dashboard', 'space', 'api', 'static', 'templates',
