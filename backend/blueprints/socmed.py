@@ -1168,3 +1168,246 @@ def api_force_monthly_delta():
         return jsonify({'success': True, 'message': 'Kalkulasi data bulanan berhasil dieksekusi.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+def log_snapshot(platform, username, last_snap_posts, curr_posts, delta_posts, last_snap_foll, curr_foll, delta_foll, month_key, year):
+    import os, csv, datetime
+    base_dir = os.path.join('static', 'file_manager', 'Social Media Report', 'Snapshot History')
+    plat_dir = os.path.join(base_dir, platform.upper())
+    os.makedirs(plat_dir, exist_ok=True)
+    
+    file_path = os.path.join(plat_dir, f'{platform.upper()}_Snapshots_{year}.csv')
+    file_exists = os.path.isfile(file_path)
+    
+    with open(file_path, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f, delimiter=';')
+        if not file_exists:
+            writer.writerow(['Timestamp', 'Username', 'Bulan', 'Tahun', 'Snap Posts', 'API Posts', 'Delta Posts', 'Snap Followers', 'API Followers', 'Delta Followers', 'Keterangan'])
+            
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ket = 'Set Baseline Awal' if last_snap_posts == -1 else 'Update Bulanan'
+        lsp = '-' if last_snap_posts == -1 else str(last_snap_posts)
+        lsf = '-' if last_snap_foll == -1 else str(last_snap_foll)
+        writer.writerow([timestamp, username, month_key, year, lsp, curr_posts, delta_posts, lsf, curr_foll, delta_foll, ket])
+
+@socmed_bp.route('/api/ig/sync_snapshot', methods=['POST'])
+@login_required
+def api_ig_sync_snapshot():
+    try:
+        data = request.json
+        username = data.get('username')
+        year = data.get('year', 2026)
+        month_key = data.get('month_key', 'feb')
+        
+        import requests, re, os
+        from bs4 import BeautifulSoup
+        
+        current_total = 0
+        current_followers = 0
+        success_fetch = False
+        
+        _rapid_key = os.environ.get('RAPIDAPI_KEY', '')
+        if _rapid_key:
+            try:
+                res_rapid = requests.post('https://instagram120.p.rapidapi.com/api/instagram/profile', 
+                                         json={'username': username}, 
+                                         headers={'content-type': 'application/json', 'X-RapidAPI-Key': _rapid_key, 'X-RapidAPI-Host': 'instagram120.p.rapidapi.com'}, 
+                                         timeout=12)
+                if res_rapid.status_code == 200:
+                    json_data = res_rapid.json()
+                    result_obj = json_data.get('result', {})
+                    if result_obj:
+                        current_total = result_obj.get('edge_owner_to_timeline_media', {}).get('count', 0)
+                        current_followers = result_obj.get('edge_followed_by', {}).get('count', 0)
+                        success_fetch = True
+            except: pass
+            
+        if not success_fetch:
+            try:
+                res_html = requests.get(f'https://www.instagram.com/{username}/', headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                soup = BeautifulSoup(res_html.text, 'html.parser')
+                meta_desc = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', property='og:description')
+                if meta_desc:
+                    content_str = meta_desc.get('content', '')
+                    
+                    f_match = re.search(r'([\d,KMB.]+)\s+Followers', content_str, re.IGNORECASE)
+                    if f_match:
+                        f_str = f_match.group(1).upper().replace(',', '')
+                        if 'K' in f_str: current_followers = int(float(f_str.replace('K', '')) * 1000)
+                        elif 'M' in f_str: current_followers = int(float(f_str.replace('M', '')) * 1000000)
+                        else: current_followers = int(float(f_str))
+                        
+                    p_match = re.search(r'([\d,KMB.]+)\s+Posts', content_str, re.IGNORECASE)
+                    if p_match:
+                        p_str = p_match.group(1).upper().replace(',', '')
+                        if 'K' in p_str: current_total = int(float(p_str.replace('K', '')) * 1000)
+                        else: current_total = int(float(p_str))
+                        success_fetch = True
+            except: pass
+            
+        if not success_fetch:
+            return jsonify({'success': False, 'error': 'Gagal mengambil data dari profil IG.'})
+            
+        from ..config import IG_ACCOUNTS_FILE
+        from .socmed import load_json_file, save_json_file
+        accounts = load_json_file(IG_ACCOUNTS_FILE)
+        
+        if username not in accounts:
+            return jsonify({'success': False, 'error': 'Akun tidak ditemukan di database.'})
+            
+        prof = accounts[username]['profile']
+        
+        last_snap_posts = prof.get('snapshot_posts', -1)
+        last_snap_foll = prof.get('snapshot_followers', -1)
+        
+        prof['snapshot_posts'] = current_total
+        prof['snapshot_followers'] = current_followers
+        prof['total_posts'] = current_total 
+        prof['followers'] = current_followers
+        
+        y_key = f'posts_{year}'
+        yf_key = f'followers_{year}'
+        if y_key not in prof: prof[y_key] = {}
+        if yf_key not in prof: prof[yf_key] = {}
+        
+        delta_p = 0
+        delta_f = 0
+        message = ''
+        if last_snap_posts == -1:
+            message = f'Baseline dicatat: {current_total} posts, {current_followers} followers.'
+            log_snapshot('ig', username, -1, current_total, 0, -1, current_followers, 0, month_key, year)
+        else:
+            delta_p = current_total - last_snap_posts
+            if delta_p < 0: delta_p = 0
+            delta_f = current_followers - last_snap_foll
+            if delta_f < 0: delta_f = 0
+            
+            prof[y_key][month_key] = prof[y_key].get(month_key, 0) + delta_p
+            prof[yf_key][month_key] = prof[yf_key].get(month_key, 0) + delta_f
+            message = f'Sync Berhasil! Tambahan {delta_p} post & {delta_f} follower bulan ini.'
+            log_snapshot('ig', username, last_snap_posts, current_total, delta_p, last_snap_foll, current_followers, delta_f, month_key, year)
+            
+        save_json_file(IG_ACCOUNTS_FILE, accounts)
+        return jsonify({'success': True, 'message': message, 'new_total': current_total, 'delta': delta_p})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@socmed_bp.route('/api/tt/sync_snapshot', methods=['POST'])
+@login_required
+def api_tt_sync_snapshot():
+    try:
+        data = request.json
+        username = data.get('username')
+        year = data.get('year', 2026)
+        month_key = data.get('month_key', 'feb')
+        
+        import requests, re, os
+        from bs4 import BeautifulSoup
+        
+        current_total = 0
+        current_followers = 0
+        success_fetch = False
+        
+        _rapid_key = os.environ.get('RAPIDAPI_KEY', '')
+        if _rapid_key:
+            try:
+                url_tt = f'https://tiktok-scraper7.p.rapidapi.com/user/info?user_name={username}'
+                res_tt = requests.get(url_tt, headers={'X-RapidAPI-Key': _rapid_key, 'X-RapidAPI-Host': 'tiktok-scraper7.p.rapidapi.com'}, timeout=12)
+                if res_tt.status_code == 200:
+                    json_data = res_tt.json()
+                    user_data = json_data.get('data', {}).get('user', {})
+                    if not user_data and 'userInfo' in json_data.get('data', {}):
+                        user_data = json_data['data']
+                    if 'stats' in user_data:
+                        current_total = user_data['stats'].get('videoCount', 0)
+                        current_followers = user_data['stats'].get('followerCount', 0)
+                        success_fetch = True
+            except: pass
+            
+        if not success_fetch:
+            try:
+                res_html = requests.get(f'https://www.tiktok.com/@{username}', headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                soup = BeautifulSoup(res_html.text, 'html.parser')
+                s_data = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
+                if s_data:
+                    import json
+                    jd = json.loads(s_data.string)
+                    stats = jd.get('__DEFAULT_SCOPE__', {}).get('webapp.user-detail', {}).get('userInfo', {}).get('stats', {})
+                    if stats:
+                        current_total = stats.get('videoCount', 0)
+                        current_followers = stats.get('followerCount', 0)
+                        success_fetch = True
+            except: pass
+
+        from ..config import TT_ACCOUNTS_FILE
+        from .socmed import load_json_file, save_json_file
+        accounts = load_json_file(TT_ACCOUNTS_FILE)
+        
+        target_id = username
+        for k, acc in accounts.items():
+            if str(acc.get('profile', {}).get('username', '')).lower() == username.lower() or k == username:
+                target_id = k
+                break
+                
+        if target_id not in accounts:
+            return jsonify({'success': False, 'error': 'Akun tidak ditemukan di database.'})
+            
+        if not success_fetch:
+            uname_real = accounts[target_id]['profile'].get('username', username)
+            try:
+                res_html = requests.get(f'https://www.tiktok.com/@{uname_real}', headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                soup = BeautifulSoup(res_html.text, 'html.parser')
+                s_data = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
+                if s_data:
+                    import json
+                    jd = json.loads(s_data.string)
+                    stats = jd.get('__DEFAULT_SCOPE__', {}).get('webapp.user-detail', {}).get('userInfo', {}).get('stats', {})
+                    if stats:
+                        current_total = stats.get('videoCount', 0)
+                        current_followers = stats.get('followerCount', 0)
+                        success_fetch = True
+            except: pass
+            
+        if not success_fetch:
+            return jsonify({'success': False, 'error': 'Gagal mengambil data profil TikTok.'})
+            
+        prof = accounts[target_id]['profile']
+        
+        last_snap_posts = prof.get('snapshot_posts', -1)
+        last_snap_foll = prof.get('snapshot_followers', -1)
+        
+        prof['snapshot_posts'] = current_total
+        prof['snapshot_followers'] = current_followers
+        prof['total_posts'] = current_total 
+        prof['followers'] = current_followers
+        
+        y_key = f'posts_{year}'
+        yf_key = f'followers_{year}'
+        if y_key not in prof: prof[y_key] = {}
+        if yf_key not in prof: prof[yf_key] = {}
+        
+        delta_p = 0
+        delta_f = 0
+        message = ''
+        if last_snap_posts == -1:
+            message = f'Baseline dicatat: {current_total} posts, {current_followers} followers.'
+            log_snapshot('tt', target_id, -1, current_total, 0, -1, current_followers, 0, month_key, year)
+        else:
+            delta_p = current_total - last_snap_posts
+            if delta_p < 0: delta_p = 0
+            delta_f = current_followers - last_snap_foll
+            if delta_f < 0: delta_f = 0
+            
+            prof[y_key][month_key] = prof[y_key].get(month_key, 0) + delta_p
+            prof[yf_key][month_key] = prof[yf_key].get(month_key, 0) + delta_f
+            message = f'Sync Berhasil! Tambahan {delta_p} video & {delta_f} follower bulan ini.'
+            log_snapshot('tt', target_id, last_snap_posts, current_total, delta_p, last_snap_foll, current_followers, delta_f, month_key, year)
+            
+        save_json_file(TT_ACCOUNTS_FILE, accounts)
+        return jsonify({'success': True, 'message': message, 'new_total': current_total, 'delta': delta_p})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
