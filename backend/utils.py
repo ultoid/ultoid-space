@@ -1,15 +1,14 @@
 import os
 import time
 from functools import wraps
-from datetime import datetime
 from flask import request, redirect, url_for, session, jsonify
-from .config import FM_ROOT
+from .config import FM_ROOT, LOGIN_LOCKOUT_SECONDS, LOGIN_MAX_ATTEMPTS
 
 _login_attempts = {}
 
 
 def get_client_ip():
-    return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+    return request.remote_addr or 'unknown'
 
 
 def _is_login_locked(ip):
@@ -26,6 +25,8 @@ def _is_login_locked(ip):
 def record_failed_login(ip):
     entry = _login_attempts.setdefault(ip, {'count': 0, 'locked_until': None})
     entry['count'] += 1
+    if entry['count'] >= LOGIN_MAX_ATTEMPTS:
+        entry['locked_until'] = time.time() + LOGIN_LOCKOUT_SECONDS
     return entry
 
 
@@ -44,10 +45,27 @@ def login_required(f):
     return decorated
 
 
-def get_safe_path(rel_path):
-    if not rel_path:
-        return os.path.abspath(FM_ROOT)
-    target = os.path.abspath(os.path.join(FM_ROOT, rel_path))
-    if not target.startswith(os.path.abspath(FM_ROOT)):
-        return os.path.abspath(FM_ROOT)
+def get_safe_path(rel_path='', item=None):
+    root = os.path.realpath(FM_ROOT)
+    base = os.path.realpath(os.path.join(root, rel_path or ''))
+    target = os.path.realpath(os.path.join(base, item or ''))
+    try:
+        normalized_root = os.path.normcase(root)
+        base_common = os.path.commonpath((normalized_root, os.path.normcase(base)))
+        target_common = os.path.commonpath((normalized_root, os.path.normcase(target)))
+    except ValueError as exc:
+        raise ValueError('Path berada di luar direktori File Manager') from exc
+    if base_common != normalized_root or target_common != normalized_root:
+        raise ValueError('Path berada di luar direktori File Manager')
+    if item is not None:
+        if (
+            not item
+            or item in ('.', '..')
+            or os.path.basename(item) != item
+            or '/' in item
+            or '\\' in item
+        ):
+            raise ValueError('Nama item tidak valid')
+        if os.path.normcase(os.path.dirname(target)) != os.path.normcase(base):
+            raise ValueError('Path item tidak valid')
     return target

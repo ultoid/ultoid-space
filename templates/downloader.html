@@ -205,7 +205,8 @@
                     
                     <div class="text-center mb-10">
                         <h2 class="text-3xl sm:text-4xl font-bold mb-3 text-white">Download Media</h2>
-                        <p class="text-gray-400 text-sm sm:text-base">Paste tautan video atau playlist dari YouTube, Twitter, dsb.</p>
+                        <p class="text-gray-400 text-sm sm:text-base">Unduh video dan foto dari YouTube, Instagram, atau TikTok.</p>
+                        <p class="text-gray-500 text-xs mt-2">Hanya media publik yang dapat diakses. Unduh konten yang Anda miliki atau berhak simpan.</p>
                     </div>
 
                     <!-- URL Input -->
@@ -214,7 +215,7 @@
                             <svg class="w-5 h-5 text-gray-400 group-focus-within:text-red-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
                         </div>
                         <input type="text" id="videoUrl" oninput="debouncePreview()" 
-                               placeholder="https://youtube.com/watch?v=..." 
+                               placeholder="Tempel tautan YouTube, Instagram, atau TikTok..."
                                class="input-glow w-full pl-12 pr-4 py-4 rounded-2xl text-white outline-none text-sm sm:text-base font-medium">
                     </div>
 
@@ -229,7 +230,7 @@
                                 <img id="previewThumb" src="" class="w-full h-full object-cover">
                             </div>
                             <div class="flex-1 min-w-0 py-1">
-                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 text-xs font-semibold text-gray-300 mb-2 border border-white/5">
+                                <div id="previewBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 text-xs font-semibold text-gray-300 mb-2 border border-white/5">
                                     <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
                                     Ditemukan
                                 </div>
@@ -253,11 +254,8 @@
                                     </div>
                                     <h3 id="playlistTitle" class="font-bold text-lg sm:text-xl text-white truncate">Memuat Playlist...</h3>
                                 </div>
-                                <button onclick="startDownload(null, true)" class="btn-primary py-2.5 px-5 rounded-xl text-sm whitespace-nowrap flex items-center gap-2 shadow-lg">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                    Unduh Semua
-                                </button>
                             </div>
+                            <p id="playlistNotice" class="text-amber-300 text-sm mb-4" role="status"></p>
                             
                             <div id="playlistContainer" class="custom-scroll max-h-64 overflow-y-auto pr-2 space-y-2 border-t border-white/5 pt-4">
                                 <!-- Playlist Items Inject Here -->
@@ -514,12 +512,14 @@
 
         // Preview Logic
         let previewTimeout = null;
+        let previewRequestId = 0;
         function debouncePreview() {
             clearTimeout(previewTimeout);
             previewTimeout = setTimeout(fetchPreview, 800); 
         }
 
         async function fetchPreview() {
+            const requestId = ++previewRequestId;
             const url = document.getElementById('videoUrl').value.trim();
             const previewBox = document.getElementById('previewBox');
             const playlistBox = document.getElementById('playlistBox');
@@ -537,6 +537,7 @@
             playlistBox.classList.add('hidden');
             btnMain.classList.remove('hidden');
             document.getElementById('previewTitle').innerText = "Mencari informasi video...";
+            document.getElementById('previewBadge').innerText = "Menganalisa tautan";
             document.getElementById('previewThumb').src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23222'/%3E%3C/svg%3E"; 
             document.getElementById('previewDuration').innerHTML = "<span class='animate-pulse'>Menganalisa...</span>";
 
@@ -547,51 +548,66 @@
                     body: JSON.stringify({ url: url })
                 });
                 const data = await response.json();
+                if (requestId !== previewRequestId) return;
                 
                 if (data.error) {
-                    document.getElementById('previewTitle').innerText = "⚠️ Tautan tidak valid atau tidak didukung";
-                    document.getElementById('previewDuration').innerHTML = "Periksa kembali URL Anda";
+                    document.getElementById('previewTitle').innerText = data.error;
+                    document.getElementById('previewBadge').innerText = "Tautan tidak dapat digunakan";
+                    document.getElementById('previewDuration').innerText = "Pastikan media bersifat publik dan berasal dari platform yang didukung.";
                 } else if (data.type === 'playlist') {
-                    // TAMPILAN PLAYLIST
                     previewBox.classList.add('hidden');
                     btnMain.classList.add('hidden');
                     playlistBox.classList.remove('hidden');
                     
-                    document.getElementById('playlistTitle').innerText = `${data.title} (${data.entries.length} Video)`;
+                    document.getElementById('playlistTitle').innerText = `${data.title} (${data.count} item)`;
+                    document.getElementById('playlistNotice').innerText = data.provider === 'YouTube'
+                        ? '⚠️ Ini playlist YouTube. Tidak ada video yang akan diunduh otomatis. Pilih satu video di bawah untuk mengunduh hanya video tersebut.'
+                        : `Pilih satu item ${data.provider} di bawah. Item lain tidak akan ikut terunduh.`;
                     
                     const container = document.getElementById('playlistContainer');
                     container.innerHTML = ""; 
                     
-                    data.entries.forEach((vid, index) => {
-                        container.innerHTML += `
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5 hover:bg-white/5 transition gap-3">
-                                <div class="flex items-center gap-3 overflow-hidden">
-                                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-white/5 text-gray-400 text-xs flex items-center justify-center font-bold">${index + 1}</span>
-                                    <span class="text-sm text-gray-200 truncate" title="${vid.title}">${vid.title}</span>
-                                </div>
-                                <button onclick="startDownload('${vid.url}', false)" class="flex-shrink-0 text-xs px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-medium transition whitespace-nowrap border border-white/10 hover:border-white/20">
-                                    Unduh
-                                </button>
-                            </div>
-                        `;
+                    data.entries.forEach((item) => {
+                        const row = document.createElement('div');
+                        row.className = 'flex flex-col sm:flex-row sm:items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5 hover:bg-white/5 transition gap-3';
+                        const title = document.createElement('span');
+                        title.className = 'text-sm text-gray-200 truncate';
+                        title.textContent = `${item.playlist_index}. ${item.title}`;
+                        title.title = item.title;
+                        const button = document.createElement('button');
+                        button.className = 'flex-shrink-0 text-xs px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-medium transition whitespace-nowrap border border-white/10 hover:border-white/20';
+                        button.textContent = 'Unduh item ini';
+                        button.addEventListener('click', () => startDownload(data.playlist_url, item.playlist_index));
+                        row.append(title, button);
+                        container.appendChild(row);
                     });
+                    if (data.truncated) {
+                        const more = document.createElement('p');
+                        more.className = 'text-center text-xs text-gray-400 pt-2';
+                        more.textContent = 'Pratinjau dibatasi hingga 50 item. Gunakan tautan langsung ke item yang ingin diunduh.';
+                        container.appendChild(more);
+                    }
 
                 } else {
-                    // TAMPILAN VIDEO TUNGGAL
                     document.getElementById('previewTitle').innerText = data.title;
-                    document.getElementById('previewThumb').src = data.thumbnail;
+                    document.getElementById('previewThumb').src = data.thumbnail || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23222'/%3E%3C/svg%3E";
+                    document.getElementById('previewBadge').innerText = data.type === 'image'
+                        ? `${data.provider} · Foto`
+                        : `${data.provider} · Video tunggal (bukan playlist)`;
                     document.getElementById('previewDuration').innerHTML = `
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         <span>${data.duration}</span>
                     `;
                 }
             } catch (error) {
+                if (requestId !== previewRequestId) return;
                 document.getElementById('previewTitle').innerText = "❌ Gagal memuat pratinjau";
                 document.getElementById('previewDuration').innerText = "Terjadi kesalahan jaringan.";
             }
         }
 
-        function startDownload(customUrl = null, isFullPlaylist = false) {
+        function startDownload(customUrl = null, playlistItem = null) {
+            if (isDownloading) return;
             const url = customUrl || document.getElementById('videoUrl').value;
             const type = document.getElementById('downloadType').value;
             const res = document.getElementById('videoRes').value;
@@ -620,15 +636,12 @@
             
             actionBox.classList.add('hidden');
             
-            if (isFullPlaylist) {
-                statusText.innerHTML = "Menganalisa playlist dan antrean...";
-            } else {
-                statusText.innerText = "Menghubungkan ke server...";
-            }
+            statusText.innerText = playlistItem ? "Memeriksa item pilihan..." : "Menghubungkan ke server...";
             
             progressBar.style.width = "2%";
 
-            const eventSource = new EventSource(`/stream-download?url=${encodeURIComponent(url)}&type=${type}&res=${res}`);
+            const itemParam = playlistItem ? `&item=${encodeURIComponent(playlistItem)}` : '';
+            const eventSource = new EventSource(`/stream-download?url=${encodeURIComponent(url)}&type=${type}&res=${res}${itemParam}`);
 
             eventSource.onmessage = function(event) {
                 if (event.data.startsWith("PROGRESS|")) {
@@ -637,7 +650,7 @@
                     const currentFile = parts[2] ? parts[2] : '';
                     
                     progressBar.style.width = percent + "%";
-                    if (isFullPlaylist && currentFile) {
+                    if (currentFile) {
                         statusText.innerText = `Mengunduh: ${currentFile} (${percent}%)`;
                     } else {
                         statusText.innerText = `Mengunduh media... ${percent}%`;
@@ -651,14 +664,9 @@
                     document.querySelector('.pulse-ring').style.display = 'none';
                     document.querySelector('.w-2.h-2.bg-red-500').classList.replace('bg-red-500', 'bg-green-500');
 
-                    if (status === "PLAYLIST") {
-                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Selesai!</span> Seluruh playlist telah diunduh.`;
-                        document.getElementById('btnDirectDownload').classList.add('hidden'); 
-                    } else {
-                        statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Selesai!</span> Media siap digunakan.`;
-                        document.getElementById('btnDirectDownload').classList.remove('hidden');
-                        document.getElementById('btnDirectDownload').href = `/download_admin/${status}`;
-                    }
+                    statusText.innerHTML = `<span class="text-green-400 font-bold">✅ Selesai!</span> Satu media berhasil diunduh.`;
+                    document.getElementById('btnDirectDownload').classList.remove('hidden');
+                    document.getElementById('btnDirectDownload').href = `/download_admin/${encodeURIComponent(status)}`;
 
                     resetDownloadBtn();
                     isDownloading = false; // MATIKAN WARNING EXIT TAB
@@ -666,7 +674,7 @@
                 } 
                 else if (event.data.startsWith("ERROR|")) {
                     document.querySelector('.pulse-ring').style.display = 'none';
-                    statusText.innerHTML = `<span class="text-red-400 font-bold">❌ Gagal:</span> ${event.data.split("|")[1]}`;
+                    statusText.innerText = `❌ Gagal: ${event.data.slice("ERROR|".length)}`;
                     resetDownloadBtn();
                     isDownloading = false; // MATIKAN WARNING EXIT TAB
                     eventSource.close();
@@ -677,7 +685,7 @@
             };
 
             eventSource.onerror = function() {
-                statusText.innerHTML = `<span class="text-yellow-400">⚠️ Proses berjalan di latar belakang. Cek File Manager nanti.</span>`;
+                statusText.innerText = '⚠️ Koneksi ke proses unduhan terputus. Periksa tab History sebelum mencoba lagi.';
                 eventSource.close();
                 resetDownloadBtn();
                 isDownloading = false; // MATIKAN WARNING EXIT TAB

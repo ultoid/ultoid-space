@@ -1,10 +1,13 @@
 <!DOCTYPE html>
-<html lang="id" class="scroll-smooth overflow-x-hidden w-full">
+<html lang="id" data-theme="dark" class="scroll-smooth overflow-x-hidden w-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ portfolio.first_name }} - Portfolio</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.png') }}">
+    <script>
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('ultoid_theme') || 'dark');
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script>
@@ -63,6 +66,7 @@
         .service-row { border-bottom: 1px solid #1f1627; transition: all 0.3s; }
         .service-row:hover { background: linear-gradient(90deg, rgba(139,92,246,0.1) 0%, transparent 100%); padding-left: 10px; border-color: #8b5cf6; }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
 </head>
 <body class="antialiased overflow-x-hidden w-full selection:bg-primary selection:text-white">
 

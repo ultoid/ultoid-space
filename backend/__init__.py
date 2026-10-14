@@ -7,11 +7,9 @@ from .blueprints.translate import translate_bp
 from .blueprints.file_manager import file_manager_bp
 from .blueprints.scraper import scraper_bp
 from .blueprints.wallpaper import wallpaper_bp
-from .blueprints.socmed import socmed_bp
 from .blueprints.qrcode import qrcode_bp
 from .blueprints.portfolio import portfolio_bp
 from .blueprints.shortlink import shortlink_bp
-from .cron import setup_scheduler
 
 
 def create_app():
@@ -38,7 +36,6 @@ def create_app():
     app.register_blueprint(file_manager_bp)
     app.register_blueprint(scraper_bp)
     app.register_blueprint(wallpaper_bp)
-    app.register_blueprint(socmed_bp)
     app.register_blueprint(qrcode_bp)
     app.register_blueprint(portfolio_bp)
     app.register_blueprint(shortlink_bp)
@@ -60,5 +57,4 @@ def create_app():
         )
         return response
 
-    setup_scheduler(app)
     return app

@@ -1,12 +1,13 @@
-from flask import Blueprint, render_template, redirect, url_for, jsonify, request, send_from_directory, current_app
-from ..utils import login_required
+from flask import Blueprint, render_template, redirect, url_for, jsonify, request, send_from_directory, current_app, send_file
+from ..utils import get_safe_path, login_required
 from ..config import NOTES_FILE, TASKS_FILE, OUTPUT_FOLDER, GAMES_FILE, NOTES_IMAGES_FOLDER, SAVES_FOLDER, GAME_IMAGES_FOLDER, MOVIES_FILE, FM_ROOT
 import os
 from werkzeug.utils import secure_filename
 import uuid
 import json
 import subprocess
-import re
+import math
+import mimetypes
 
 pages_bp = Blueprint('pages', __name__)
 
@@ -51,51 +52,6 @@ def emulator():
 @login_required
 def game_admin():
     return render_template('game_admin.html')
-
-
-@pages_bp.route('/ig-scraper', endpoint='ig_scraper_page')
-@login_required
-def ig_scraper_page():
-    return render_template('ig_scraper.html')
-
-
-@pages_bp.route('/tt-scraper', endpoint='tt_scraper_page')
-@login_required
-def tt_scraper_page():
-    return render_template('tt_scraper.html')
-
-
-@pages_bp.route('/fb-scraper', endpoint='fb_scraper_page')
-@login_required
-def fb_scraper_page():
-    return render_template('fb_scraper.html')
-
-
-@pages_bp.route('/fb-input', endpoint='fb_input_page')
-@login_required
-def fb_input_page():
-    return render_template('fb_input.html')
-
-
-@pages_bp.route('/socmed-dashboard', endpoint='socmed_dashboard')
-@login_required
-def socmed_dashboard():
-    return render_template('socmed_dashboard.html')
-
-
-@pages_bp.route('/gmaps-analytic', endpoint='gmaps_analytic_page')
-@login_required
-def gmaps_analytic_page():
-    return render_template('gmaps_analytic.html')
-
-
-@pages_bp.route('/gmaps-analytic/detail', endpoint='gmaps_detail_page')
-@login_required
-def gmaps_detail_page():
-    # Pass business_id and name to template for display
-    business_id = request.args.get('id', '')
-    business_name = request.args.get('name', business_id)
-    return render_template('gmaps_detail.html', business_id=business_id, business_name=business_name)
 
 
 @pages_bp.route('/download_admin/<path:filename>', endpoint='download_admin')
@@ -244,17 +200,26 @@ def update_time_played(game_id):
         
     try:
         data = request.json
+        if not isinstance(data, dict):
+            return jsonify({'success': False, 'error': 'Payload tidak valid'}), 400
         time_played_increment = data.get('timePlayed', 0)
         last_played = data.get('lastPlayed')
+        if (
+            isinstance(time_played_increment, bool)
+            or not isinstance(time_played_increment, (int, float))
+            or not math.isfinite(time_played_increment)
+            or time_played_increment < 0
+        ):
+            return jsonify({'success': False, 'error': 'timePlayed harus berupa angka positif'}), 400
         
         with open(GAMES_FILE, 'r', encoding='utf-8') as f:
             games = json.load(f)
             
-        for game in games:
-            if game.get('id') == game_id:
-                game['timePlayed'] = game.get('timePlayed', 0) + time_played_increment
-                game['lastPlayed'] = last_played
-                break
+        game = next((game for game in games if game.get('id') == game_id), None)
+        if game is None:
+            return jsonify({'success': False, 'error': 'Game tidak ditemukan'}), 404
+        game['timePlayed'] = game.get('timePlayed', 0) + time_played_increment
+        game['lastPlayed'] = last_played
                 
         with open(GAMES_FILE, 'w', encoding='utf-8') as f:
             json.dump(games, f, ensure_ascii=False, indent=4)
@@ -306,8 +271,11 @@ def api_movies():
 @login_required
 def extract_subtitle():
     data = request.json
-    video_path = os.path.join(FM_ROOT, data.get('video_rel_path', '').lstrip('/'))
-    if not os.path.exists(video_path):
+    try:
+        video_path = get_safe_path(data.get('video_rel_path', '').lstrip('/'))
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+    if not os.path.isfile(video_path):
         return jsonify({'success': False, 'error': 'Video tidak ditemukan'}), 404
 
     # Extract to the same directory with .vtt extension
@@ -332,13 +300,41 @@ def extract_subtitle():
 @pages_bp.route('/api/movies/stream')
 @login_required
 def stream_movie():
-    # Stream the file directly from File Manager, send_file handles range requests!
     rel_path = request.args.get('path', '').lstrip('/')
-    abs_path = os.path.abspath(os.path.join(FM_ROOT, rel_path))
-    if not abs_path.startswith(os.path.abspath(FM_ROOT)):
+    try:
+        abs_path = get_safe_path(rel_path)
+    except ValueError:
         return "Access denied", 403
     if os.path.isfile(abs_path):
-        from flask import send_file
-        return send_file(abs_path)
+        mime_type = {
+            '.vtt': 'text/vtt',
+            '.srt': 'application/x-subrip',
+            '.mkv': 'video/x-matroska',
+        }.get(os.path.splitext(abs_path)[1].lower(), mimetypes.guess_type(abs_path)[0] or 'application/octet-stream')
+        return send_file(abs_path, mimetype=mime_type, conditional=True)
     return "Not found", 404
 
+
+@pages_bp.route('/api/movies/download')
+@login_required
+def download_movie():
+    rel_path = request.args.get('path', '').lstrip('/')
+    try:
+        abs_path = get_safe_path(rel_path)
+    except ValueError:
+        return 'Access denied', 403
+    if not os.path.isfile(abs_path):
+        return 'Not found', 404
+    extension = os.path.splitext(abs_path)[1].lower()
+    mime_type = {
+        '.mkv': 'video/x-matroska',
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+    }.get(extension, mimetypes.guess_type(abs_path)[0] or 'application/octet-stream')
+    return send_file(
+        abs_path,
+        mimetype=mime_type,
+        as_attachment=True,
+        download_name=os.path.basename(abs_path),
+        conditional=True,
+    )

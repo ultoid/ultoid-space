@@ -12,11 +12,11 @@ shortlink_bp = Blueprint('shortlink', __name__)
 def load_shortlinks():
     if not os.path.exists(SHORTLINKS_FILE):
         return {}
-    try:
-        with open(SHORTLINKS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except:
-        return {}
+    with open(SHORTLINKS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError('Database shortlink harus berupa objek JSON.')
+    return data
 
 def save_shortlinks(data):
     os.makedirs(os.path.dirname(SHORTLINKS_FILE), exist_ok=True)
@@ -127,7 +127,7 @@ def api_delete(short_id):
     return jsonify({'error': 'Not found'}), 404
 
 # Route catch-all for redirection
-@shortlink_bp.route('/<short_id>', methods=['GET'])
+@shortlink_bp.route('/s/<short_id>', methods=['GET'])
 def redirect_shortlink(short_id):
     # This route has lowest priority due to being dynamic. 
     # Flask matches explicit routes (like /dashboard) before dynamic ones.

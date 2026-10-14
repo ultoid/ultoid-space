@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="dim">
+<html lang="id" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -56,6 +56,7 @@
     flex-shrink: 0;
     z-index: 100;
   }
+  .topbar.u-glass { border-radius: 0; }
   .topbar-logo {
     display: flex; align-items: center; gap: 8px;
     font-weight: 600; font-size: 15px; color: var(--text);
@@ -294,6 +295,34 @@
   .empty-state h3 { font-size: 16px; color: var(--text); font-weight: 500; }
   .empty-state p { font-size: 13px; max-width: 300px; }
 
+  .recent-loading { padding: 28px 4px; }
+  .recent-loading-status {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted); font-size: 13px; margin-bottom: 22px;
+  }
+  .recent-loading-spinner {
+    width: 20px; height: 20px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: recentSpin .75s linear infinite; flex-shrink: 0;
+  }
+  .recent-skeleton-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px;
+  }
+  .recent-skeleton-card {
+    height: 142px; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 12px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .recent-skeleton-shape {
+    background: linear-gradient(100deg, var(--surface2) 20%, var(--surface3) 40%, var(--surface2) 60%);
+    background-size: 200% 100%; animation: recentShimmer 1.4s ease-in-out infinite;
+    border-radius: 6px;
+  }
+  .recent-skeleton-icon { width: 56px; height: 56px; border-radius: 10px; }
+  .recent-skeleton-line { width: 75%; height: 10px; }
+  .recent-skeleton-line.short { width: 45%; height: 8px; }
+  @keyframes recentSpin { to { transform: rotate(360deg); } }
+  @keyframes recentShimmer { to { background-position-x: -200%; } }
+
   /* ─── CONTEXT MENU ────────────────────────── */
   .ctx-menu {
     position: fixed; z-index: 9999;
@@ -340,6 +369,8 @@
   .modal-lg { max-width: 840px; }
   .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .confirm-message { color: var(--muted); font-size: 14px; line-height: 1.65; white-space: pre-line; }
+  .confirm-modal .modal-actions { margin-top: 24px; }
 
   /* ─── PREVIEW MODAL ───────────────────────── */
   .preview-header {
@@ -491,7 +522,7 @@
       <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="text" id="searchInput" class="u-input" placeholder="Cari file dan folder..." oninput="filterFiles()">
     </div>
-    <button class="filter-btn-mobile" onclick="alert('Fitur Filter Segera Hadir')">
+    <button class="filter-btn-mobile" onclick="showNotice('Filter file belum tersedia.', 'Filter file')">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       Filter File
     </button>
@@ -553,13 +584,16 @@
     <div class="toolbar">
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="toolbar-actions">
-        <button class="u-btn u-btn-ghost" onclick="openUploadModal()">
+        <button class="u-btn u-btn-ghost" id="btnUpload" onclick="openUploadModal()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Upload
         </button>
-        <button class="u-btn u-btn-primary" onclick="openNewFolder()">
+        <button class="u-btn u-btn-primary" id="btnNewFolder" onclick="openNewFolder()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
           Folder Baru
+        </button>
+        <button class="u-btn u-btn-ghost" id="btnEmptyTrash" onclick="emptyTrash()" style="display:none">
+          Kosongkan Sampah
         </button>
       </div>
     </div>
@@ -587,13 +621,16 @@
   <span class="fab-count" id="fabCount">0</span>
   <span style="color:var(--muted);font-size:13px;">dipilih</span>
   <div class="fab-sep"></div>
-  <button class="u-btn u-btn-ghost" onclick="downloadSelected()" style="padding:6px 12px;font-size:12px;">
+  <button class="u-btn u-btn-ghost" id="fabDownload" onclick="downloadSelected()" style="padding:6px 12px;font-size:12px;">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Unduh ZIP
   </button>
-  <button class="u-btn u-btn-danger" onclick="deleteSelected()" style="padding:6px 12px;font-size:12px;">
+  <button class="u-btn u-btn-ghost" id="fabRestore" onclick="restoreSelectedTrash()" style="padding:6px 12px;font-size:12px;display:none">
+    ↩️ Pulihkan
+  </button>
+  <button class="u-btn u-btn-danger" id="fabDelete" onclick="deleteSelected()" style="padding:6px 12px;font-size:12px;">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-    Hapus
+    <span id="fabDeleteLabel">Hapus</span>
   </button>
   <button class="icon-btn" onclick="clearSelection()" title="Batal pilih">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -670,6 +707,17 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="modalConfirm" style="display:none" role="presentation">
+  <div class="modal u-glass confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+    <h2 id="confirmTitle">Konfirmasi</h2>
+    <p class="confirm-message" id="confirmMessage"></p>
+    <div class="modal-actions">
+      <button class="u-btn u-btn-ghost" id="confirmCancel" type="button">Batal</button>
+      <button class="u-btn u-btn-primary" id="confirmAccept" type="button">Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════
 //  STATE
@@ -685,6 +733,7 @@ let dragSrcItem  = null;
 let isSelecting  = false; // Untuk Marquee Drag-Select
 let startX = 0, startY = 0;
 let initialSelection = new Set();
+let recentLoadId = 0;
 
 const API = path => '/api/fm' + path;
 
@@ -703,9 +752,25 @@ function toggleSidebar() {
 document.addEventListener('DOMContentLoaded', () => {
   setView(viewMode, true);
   loadStorage();
-  navigateTo('');
+  const routePath = window.location.pathname.startsWith('/file-manager/')
+    ? decodeURIComponent(window.location.pathname.slice('/file-manager/'.length))
+    : '';
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get('view');
+  if (mode === 'trash') sidebarNav('trash', false);
+  else if (mode === 'recent') sidebarNav('recent', false);
+  else navigateTo(routePath || params.get('path') || '', false);
   document.addEventListener('click', () => hideCtx());
   document.addEventListener('keydown', onKeyDown);
+  window.addEventListener('popstate', () => {
+    const currentRoutePath = window.location.pathname.startsWith('/file-manager/')
+      ? decodeURIComponent(window.location.pathname.slice('/file-manager/'.length))
+      : '';
+    const currentParams = new URLSearchParams(window.location.search);
+    if (currentParams.get('view') === 'trash') sidebarNav('trash', false);
+    else if (currentParams.get('view') === 'recent') sidebarNav('recent', false);
+    else navigateTo(currentRoutePath || currentParams.get('path') || '', false);
+  });
 });
 
 // ═══════════════════════════════════════
@@ -726,25 +791,47 @@ async function loadStorage() {
 // ═══════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════
-function navigateTo(path) {
+function navigateTo(path, updateHistory = true) {
+  path = String(path || '').replace(/^\/+|\/+$/g, '');
   currentPath = path;
+  sidebarMode = 'my';
   clearSelection();
+  if (updateHistory) {
+    const route = path ? `/file-manager/${path.split('/').map(encodeURIComponent).join('/')}` : '/file-manager';
+    window.history.pushState({}, '', route);
+  }
   updateBreadcrumb();
+  updateViewActions();
   loadFiles();
   updateSidebarActive('my');
 }
 
+function updateViewActions() {
+  const isMyFiles = sidebarMode === 'my';
+  document.getElementById('btnUpload').style.display = isMyFiles ? '' : 'none';
+  document.getElementById('btnNewFolder').style.display = isMyFiles ? '' : 'none';
+  document.getElementById('btnEmptyTrash').style.display = sidebarMode === 'trash' ? '' : 'none';
+}
+
 function updateBreadcrumb() {
   const bc = document.getElementById('breadcrumb');
+  if (sidebarMode === 'recent') {
+    bc.innerHTML = `<span class="breadcrumb-item current">Terbaru</span>`;
+    return;
+  }
+  if (sidebarMode === 'trash') {
+    bc.innerHTML = `<span class="breadcrumb-item current">Sampah</span>`;
+    return;
+  }
   const parts = currentPath ? currentPath.split('/').filter(Boolean) : [];
   let html = `<button class="breadcrumb-item ${!currentPath?'current':''}" onclick="navigateTo('')">File Manager</button>`;
   let accumulated = '';
   parts.forEach((p, i) => {
     accumulated += (accumulated ? '/' : '') + p;
     const isLast = i === parts.length - 1;
-    const cap = accumulated;
+    const encodedPath = encodeURIComponent(accumulated);
     html += `<span class="breadcrumb-sep">›</span>`;
-    html += `<button class="breadcrumb-item ${isLast?'current':''}" onclick="navigateTo('${cap}')">${p}</button>`;
+    html += `<button class="breadcrumb-item ${isLast?'current':''}" onclick="navigateTo(decodeURIComponent('${encodedPath}'))">${escHtml(p)}</button>`;
   });
   bc.innerHTML = html;
 }
@@ -766,6 +853,10 @@ async function loadFiles() {
 }
 
 function renderFiles(data, filterStr = '') {
+  if (sidebarMode === 'trash') {
+    renderTrash(data.items || [], filterStr);
+    return;
+  }
   let { folders, files } = data;
   if (filterStr) {
     const q = filterStr.toLowerCase();
@@ -785,6 +876,61 @@ function renderFiles(data, filterStr = '') {
 
   if (viewMode === 'grid') renderGrid(folders, files);
   else renderList(folders, files);
+}
+
+function renderTrash(items, filterStr = '') {
+  const query = filterStr.toLowerCase();
+  const visibleItems = items.filter(item =>
+    !query || item.name.toLowerCase().includes(query) || item.original_path.toLowerCase().includes(query)
+  );
+  const fc = document.getElementById('fileContent');
+  if (!visibleItems.length) {
+    fc.innerHTML = `<div class="empty-state">
+      <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+      <h3>Sampah kosong</h3>
+      <p>Item yang dihapus akan muncul di sini dan bisa dipulihkan.</p>
+    </div>`;
+    return;
+  }
+  if (viewMode === 'grid') {
+    fc.innerHTML = `<div class="file-grid">${visibleItems.map(item => {
+      const id = esc(item.id);
+      const selectedClass = selected.has('trash:' + item.id) ? ' selected' : '';
+      return `<div class="file-card u-glass${selectedClass}" data-type="trash" data-name="${id}"
+        onclick="onTrashItemClick(event,'${id}')" oncontextmenu="onItemCtx(event,'trash','${id}')">
+        <div class="file-card-check"><svg width="10" height="10" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="file-card-icon">${item.type === 'folder' ? '📁' : fileIcon(item.name)}</div>
+        <div class="file-card-name">${escHtml(item.name)}</div>
+        <div class="file-card-meta">${escHtml(item.original_path)} · ${escHtml(item.trashed_at)}</div>
+      </div>`;
+    }).join('')}</div>`;
+    return;
+  }
+  fc.innerHTML = `<div class="file-list">
+    <div class="file-list-header"><div></div><div>Nama</div><div class="file-row-size">Lokasi asal</div><div class="file-row-date">Dihapus</div><div>Jenis</div></div>
+    ${visibleItems.map(item => {
+      const id = esc(item.id);
+      const selectedClass = selected.has('trash:' + item.id) ? ' selected' : '';
+      return `<div class="file-row${selectedClass}" data-type="trash" data-name="${id}"
+        onclick="onTrashItemClick(event,'${id}')" oncontextmenu="onItemCtx(event,'trash','${id}')">
+        <div class="file-row-check"><svg width="9" height="9" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="file-row-name"><span class="file-row-icon">${item.type === 'folder' ? '📁' : fileIcon(item.name)}</span><span class="file-row-label">${escHtml(item.name)}</span></div>
+        <div class="file-row-size">${escHtml(item.original_path)}</div><div class="file-row-date">${escHtml(item.trashed_at)}</div><div class="file-row-type">${item.type === 'folder' ? 'Folder' : 'File'}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function onTrashItemClick(event, itemId) {
+  event.stopPropagation();
+  const key = 'trash:' + itemId;
+  if (event.ctrlKey || event.metaKey || event.shiftKey) {
+    selected.has(key) ? selected.delete(key) : selected.add(key);
+  } else {
+    selected.clear();
+    selected.add(key);
+  }
+  updateSelectionUI();
 }
 
 function renderGrid(folders, files) {
@@ -942,6 +1088,55 @@ function filterFiles() {
   renderFiles(allItems, q);
 }
 
+let confirmDialogResolver = null;
+
+function showConfirm(message, options = {}) {
+  if (confirmDialogResolver) confirmDialogResolver(false);
+  const backdrop = document.getElementById('modalConfirm');
+  const acceptButton = document.getElementById('confirmAccept');
+  const cancelButton = document.getElementById('confirmCancel');
+  document.getElementById('confirmTitle').textContent = options.title || 'Konfirmasi';
+  document.getElementById('confirmMessage').textContent = message;
+  acceptButton.textContent = options.confirmLabel || 'Lanjutkan';
+  acceptButton.classList.toggle('u-btn-danger', Boolean(options.danger));
+  acceptButton.classList.toggle('u-btn-primary', !options.danger);
+  cancelButton.style.display = options.notice ? 'none' : '';
+  backdrop.style.display = 'flex';
+
+  return new Promise(resolve => {
+    confirmDialogResolver = resolve;
+    const finish = result => {
+      if (!confirmDialogResolver) return;
+      backdrop.style.display = 'none';
+      acceptButton.removeEventListener('click', accept);
+      cancelButton.removeEventListener('click', cancel);
+      document.removeEventListener('keydown', onDialogKeydown);
+      const resolveDialog = confirmDialogResolver;
+      confirmDialogResolver = null;
+      resolveDialog(result);
+    };
+    const accept = () => finish(true);
+    const cancel = () => finish(false);
+    const onDialogKeydown = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(false);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        finish(true);
+      }
+    };
+    acceptButton.addEventListener('click', accept);
+    cancelButton.addEventListener('click', cancel);
+    document.addEventListener('keydown', onDialogKeydown);
+    acceptButton.focus();
+  });
+}
+
+function showNotice(message, title = 'Informasi') {
+  return showConfirm(message, { title, confirmLabel: 'Mengerti', notice: true });
+}
+
 // ═══════════════════════════════════════
 //  SELECTION
 // ═══════════════════════════════════════
@@ -1019,6 +1214,9 @@ function updateSelectionUI() {
   const count = selected.size;
   document.getElementById('fabCount').textContent = count;
   fab.classList.toggle('show', count > 0);
+  document.getElementById('fabDownload').style.display = sidebarMode === 'trash' ? 'none' : '';
+  document.getElementById('fabRestore').style.display = sidebarMode === 'trash' ? '' : 'none';
+  document.getElementById('fabDeleteLabel').textContent = sidebarMode === 'trash' ? 'Hapus permanen' : 'Hapus';
 }
 
 // ═══════════════════════════════════════
@@ -1079,7 +1277,10 @@ async function onItemDrop(e, el, type, name) {
   dragSrcItems = null;
 
   if (itemsToMove.some(i => i.type === 'folder')) {
-      if (!confirm("⚠️ ALARM: Anda menyeleksi sebuah Folder! Yakin ingin memindahkan folder ini beserta seluruh isinya ke tempat baru?")) {
+      if (!await showConfirm("Anda memilih folder. Seluruh isi folder akan ikut dipindahkan ke lokasi baru.", {
+        title: 'Pindahkan folder?',
+        confirmLabel: 'Pindahkan',
+      })) {
           clearSelection(); 
           return;
       }
@@ -1222,6 +1423,14 @@ function buildItemMenu(type, name) {
 
   let items = [];
 
+  if (sidebarMode === 'trash') {
+    const itemIds = selectedItems.filter(item => item.type === 'trash').map(item => item.name);
+    items.push({ icon:'↩️', label:`Pulihkan${itemIds.length > 1 ? ` (${itemIds.length})` : ''}`, action: () => restoreTrashItems(itemIds) });
+    items.push({ sep: true });
+    items.push({ icon:'🗑️', label:`Hapus permanen${itemIds.length > 1 ? ` (${itemIds.length})` : ''}`, action: () => permanentlyDeleteTrashItems(itemIds), danger: true });
+    return items;
+  }
+
   if (selectedItems.length > 1) {
     items.push({ icon:'⬇️', label:`Unduh ${selectedItems.length} item (ZIP)`, action: () => downloadSelected() });
     items.push({ sep: true });
@@ -1342,17 +1551,48 @@ async function downloadSelected() {
 
 async function deleteSelected() {
   if (!selected.size) return;
+  if (sidebarMode === 'trash') {
+    const itemIds = [...selected].map(key => key.slice('trash:'.length));
+    await permanentlyDeleteTrashItems(itemIds);
+    return;
+  }
   const items = [...selected].map(k => {
     const [type, ...rest] = k.split(':');
     return { type, name: rest.join(':') };
   });
-  if (!confirm(`Hapus ${items.length} item secara permanen?`)) return;
+  if (!await showConfirm(`Pindahkan ${items.length} item ke Sampah? Item masih dapat dipulihkan.`, {
+    title: 'Pindahkan ke Sampah',
+    confirmLabel: 'Pindahkan',
+    danger: true,
+  })) return;
   await deleteItems(items);
 }
 
 async function deleteItems(items) {
-  await apiFetch('/bulk_delete', 'POST', { path: currentPath, items: items.map(i => i.name) });
-  toast(`🗑️ ${items.length} item dihapus`, 'success');
+  if (sidebarMode === 'recent') {
+    let movedCount = 0;
+    for (const item of items) {
+      const recentFile = allItems.files.find(file => file.name === item.name);
+      if (!recentFile) continue;
+      const pathParts = recentFile.rel_path.split('/');
+      const result = await apiFetch('/trash', 'POST', {
+        path: pathParts.slice(0, -1).join('/'),
+        items: [pathParts[pathParts.length - 1]],
+      });
+      if (result.success) movedCount++;
+      else toast(result.error || `Gagal memindahkan ${item.name} ke Sampah.`, 'error');
+    }
+    if (movedCount) toast(`🗑️ ${movedCount} item dipindahkan ke Sampah`, 'success');
+    clearSelection();
+    loadRecent();
+    return;
+  }
+  const result = await apiFetch('/trash', 'POST', { path: currentPath, items: items.map(i => i.name) });
+  if (!result.success) {
+    toast(result.error || 'Gagal memindahkan item ke Sampah.', 'error');
+    return;
+  }
+  toast(`🗑️ ${items.length} item dipindahkan ke Sampah`, 'success');
   clearSelection();
   loadFiles();
 }
@@ -1559,12 +1799,21 @@ function setView(mode, noRender) {
 // ═══════════════════════════════════════
 //  SIDEBAR MODES
 // ═══════════════════════════════════════
-function sidebarNav(mode) {
+function sidebarNav(mode, updateHistory = true) {
+  if (mode === 'my') {
+    navigateTo('', updateHistory);
+    return;
+  }
+  if (mode !== 'recent' && mode !== 'trash') return;
   sidebarMode = mode;
+  currentPath = '';
+  if (updateHistory) window.history.pushState({}, '', `/file-manager?view=${mode}`);
+  clearSelection();
   updateSidebarActive(mode);
-  if (mode === 'my') navigateTo('');
-  else if (mode === 'recent') loadRecent();
-  else if (mode === 'trash') toast('🚧 Fitur sampah belum diaktifkan di server');
+  updateBreadcrumb();
+  updateViewActions();
+  if (mode === 'recent') loadRecent();
+  else loadTrash();
 }
 
 function updateSidebarActive(active) {
@@ -1575,15 +1824,97 @@ function updateSidebarActive(active) {
 }
 
 async function loadRecent() {
+  const loadId = ++recentLoadId;
+  renderRecentLoading();
   try {
     const r = await fetch(API('/recent'));
+    if (!r.ok) throw new Error('Gagal mengambil daftar file terbaru.');
     const d = await r.json();
+    if (loadId !== recentLoadId || sidebarMode !== 'recent') return;
     allItems = { folders: [], files: d.files || [] };
-    document.getElementById('breadcrumb').innerHTML = `<span class="breadcrumb-item current">Terbaru</span>`;
+    updateBreadcrumb();
     renderFiles(allItems);
-  } catch(e) {
-    toast('Tidak ada data terbaru', 'error');
+  } catch(error) {
+    if (loadId !== recentLoadId || sidebarMode !== 'recent') return;
+    document.getElementById('fileContent').innerHTML = `<div class="empty-state"><h3>Gagal memuat file terbaru</h3><p>${esc(error.message)}</p><button class="u-btn u-btn-ghost" onclick="loadRecent()">Coba lagi</button></div>`;
   }
+}
+
+function renderRecentLoading() {
+  const cards = Array.from({ length: 8 }, () => `
+    <div class="recent-skeleton-card u-glass" aria-hidden="true">
+      <div class="recent-skeleton-shape recent-skeleton-icon"></div>
+      <div class="recent-skeleton-shape recent-skeleton-line"></div>
+      <div class="recent-skeleton-shape recent-skeleton-line short"></div>
+    </div>`).join('');
+  document.getElementById('fileContent').innerHTML = `
+    <div class="recent-loading" role="status" aria-live="polite">
+      <div class="recent-loading-status"><span class="recent-loading-spinner" aria-hidden="true"></span><span>Memuat file terbaru...</span></div>
+      <div class="recent-skeleton-grid">${cards}</div>
+    </div>`;
+}
+
+async function loadTrash() {
+  try {
+    const response = await fetch(API('/trash'));
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat Sampah.');
+    allItems = { items: data.items || [] };
+    updateBreadcrumb();
+    renderFiles(allItems);
+  } catch (error) {
+    document.getElementById('fileContent').innerHTML = `<div class="empty-state"><h3>Gagal memuat Sampah</h3><p>${esc(error.message)}</p></div>`;
+  }
+}
+
+async function restoreTrashItems(itemIds) {
+  if (!itemIds.length) return;
+  const result = await apiFetch('/trash/restore', 'POST', { items: itemIds });
+  if (!result.success) {
+    toast(result.error || 'Gagal memulihkan item.', 'error');
+    return;
+  }
+  toast(`↩️ ${itemIds.length} item dipulihkan`, 'success');
+  clearSelection();
+  loadTrash();
+}
+
+async function restoreSelectedTrash() {
+  const itemIds = [...selected].map(key => key.slice('trash:'.length));
+  await restoreTrashItems(itemIds);
+}
+
+async function permanentlyDeleteTrashItems(itemIds) {
+  if (!itemIds.length) return;
+  if (!await showConfirm(`Hapus permanen ${itemIds.length} item? Tindakan ini tidak dapat dibatalkan.`, {
+    title: 'Hapus permanen',
+    confirmLabel: 'Hapus permanen',
+    danger: true,
+  })) return;
+  const result = await apiFetch('/trash/delete', 'POST', { items: itemIds });
+  if (!result.success) {
+    toast(result.error || 'Gagal menghapus item secara permanen.', 'error');
+    return;
+  }
+  toast(`🗑️ ${itemIds.length} item dihapus permanen`, 'success');
+  clearSelection();
+  loadTrash();
+}
+
+async function emptyTrash() {
+  if (!await showConfirm('Kosongkan Sampah secara permanen? Semua item di dalamnya akan dihapus dan tidak dapat dipulihkan.', {
+    title: 'Kosongkan Sampah',
+    confirmLabel: 'Kosongkan',
+    danger: true,
+  })) return;
+  const result = await apiFetch('/trash/empty', 'POST', {});
+  if (!result.success) {
+    toast(result.error || 'Gagal mengosongkan Sampah.', 'error');
+    return;
+  }
+  clearSelection();
+  toast('Sampah dikosongkan', 'success');
+  loadTrash();
 }
 
 // ═══════════════════════════════════════

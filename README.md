@@ -15,14 +15,13 @@ Dirancang untuk membuat proses terjemahan novel, buku, atau dokumen panjang menj
 
 ## ✨ Fitur Unggulan
 
-- 📂 **File Manager** — Kelola dokumen, gambar, dan hasil terjemahan dengan mudah melalui antarmuka lokal.
-- 🎬 **Local Streaming Platform** — Nonton koleksi film dan TV series lokal dengan antarmuka modern ala Netflix, dukungan subtitle responsif, riwayat *Continue Watching*, dan *custom video player*.
+- 📂 **File Manager** — Kelola dokumen, gambar, dan hasil terjemahan melalui antarmuka lokal; URL folder mengikuti navigasi, dan Sampah mendukung pemulihan maupun penghapusan permanen.
+- 🎬 **Local Streaming Platform** — Putar file film/series asli, termasuk MKV, dan unduh ke penyimpanan browser untuk ditonton ulang tanpa mengambil data dari server. Download dapat dibatalkan atau dihapus dari halaman; subtitle dan riwayat *Continue Watching* tetap didukung. Dukungan pemutaran MKV bergantung pada codec yang didukung browser/perangkat.
 - 🌐 **AI PDF Translator** — Terjemahkan PDF secara otomatis dengan bantuan AI (Google GenAI / Gemma 4), lalu simpan hasilnya ke Markdown atau Word.
 - 🎮 **Game Emulator & Cloud Gaming** — Jalankan dan kelola game klasik langsung dari emulator lokal atau melalui integrasi Cloud Emulator Gaming (ROMM).
 - 📝 **Notes with Flowchart** — Buat catatan visual dan diagram alur untuk ide, tugas, atau proyek.
 - 📅 **Calendar Task** — Atur daftar tugas dan jadwal Anda dengan kalender terintegrasi.
-- ⬇️ **Video Downloader** — Unduh video dari berbagai platform media sosial secara langsung.
-- 📊 **Social Media Report** — Hasilkan laporan analitik media sosial untuk Instagram, TikTok, dan Facebook.
+- ⬇️ **Media Downloader** — Unduh video dan foto publik dari YouTube, Instagram, dan TikTok. Playlist YouTube ditandai dengan jelas dan hanya item yang dipilih yang akan diunduh.
 
 > **💡 Catatan Tambahan:**
 > - **Konfigurasi Aman**: Gunakan `.env` untuk menyimpan API key secara aman dan rahasia.
@@ -68,9 +67,11 @@ pip install -r requirements.txt
 ### 3. Konfigurasi API Key
 Buat file bernama `.env` di direktori utama, lalu tambahkan API key Anda:
 ```env
+ULTOID_ADMIN_USERNAME=admin
+ULTOID_ADMIN_PASSWORD=password_admin_kuat
 GEMINI_API_KEY=api_gemini_anda_di_sini
-RAPIDAPI_KEY=api_rapidapi_anda_di_sini    # Opsional untuk fitur social media
 ```
+`ULTOID_ADMIN_PASSWORD` wajib diisi saat pertama kali menjalankan aplikasi jika `data/credentials.txt` belum tersedia. Setelah kredensial dibuat, password tersimpan sebagai hash di file tersebut.
 
 ### 4. Jalankan Aplikasi
 Jalankan server lokal dengan perintah:

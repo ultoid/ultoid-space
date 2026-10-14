@@ -7,6 +7,6 @@ python -m pip install -r requirements.txt -q
 echo ✅ Packages installed!
 echo.
 echo [2/2] Starting application...
-start http://127.0.0.1:8080
+start http://anugerahgmb.com
 python app.py
 pause

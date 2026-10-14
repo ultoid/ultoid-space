@@ -9,6 +9,7 @@ import barcode
 from barcode.writer import ImageWriter
 from PIL import Image
 from ..config import QRCODES_FILE, QRCODES_FOLDER, QRCODES_LOGOS_FOLDER
+from ..utils import login_required
 
 qrcode_bp = Blueprint('qrcode_bp', __name__)
 
@@ -35,10 +36,12 @@ def hex_to_rgb(hex_code):
         return (0, 0, 0)
 
 @qrcode_bp.route('/qrcode')
+@login_required
 def qrcode_page():
     return render_template('qrcode.html')
 
 @qrcode_bp.route('/api/qrcode/list', methods=['GET'])
+@login_required
 def list_qrcodes():
     # Sort by created_at descending
     qrcodes = load_qrcodes()
@@ -47,6 +50,7 @@ def list_qrcodes():
 
 @qrcode_bp.route('/api/qrcode/generate', methods=['POST'])
 @qrcode_bp.route('/api/qrcode/edit/<item_id>', methods=['POST'])
+@login_required
 def generate_qrcode(item_id=None):
     text = request.form.get('text', '').strip()
     item_type = request.form.get('type', 'qrcode')
@@ -55,6 +59,8 @@ def generate_qrcode(item_id=None):
     
     if not text:
         return jsonify({'error': 'Teks atau link tidak boleh kosong'}), 400
+    if item_type not in {'qrcode', 'barcode'}:
+        return jsonify({'error': 'Tipe kode tidak valid'}), 400
 
     qrcodes = load_qrcodes()
     
@@ -155,6 +161,7 @@ def generate_qrcode(item_id=None):
         return jsonify({'error': str(e)}), 500
 
 @qrcode_bp.route('/api/qrcode/<item_id>', methods=['DELETE'])
+@login_required
 def delete_qrcode(item_id):
     qrcodes = load_qrcodes()
     item = next((q for q in qrcodes if q['id'] == item_id), None)

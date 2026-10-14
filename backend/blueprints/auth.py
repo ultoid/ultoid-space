@@ -1,6 +1,5 @@
 import os
-import json
-from flask import Blueprint, render_template, request, redirect, url_for, session
+from flask import Blueprint, current_app, render_template, request, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..config import CREDENTIALS_FILE, DATA_FOLDER
 from ..utils import get_client_ip, _is_login_locked, record_failed_login, reset_login_attempts
@@ -11,9 +10,16 @@ auth_bp = Blueprint('auth', __name__)
 def init_credentials():
     os.makedirs(DATA_FOLDER, exist_ok=True)
     if not os.path.exists(CREDENTIALS_FILE):
-        default_hash = generate_password_hash('ultoid123')
-        with open(CREDENTIALS_FILE, 'w', encoding='utf-8') as f:
-            f.write(f"USERNAME=admin\nHASHED_PASSWORD={default_hash}\n")
+        password = os.environ.get('ULTOID_ADMIN_PASSWORD')
+        if not password:
+            raise RuntimeError('ULTOID_ADMIN_PASSWORD harus diatur sebelum membuat kredensial admin.')
+        username = os.environ.get('ULTOID_ADMIN_USERNAME', 'admin')
+        password_hash = generate_password_hash(password)
+        try:
+            with open(CREDENTIALS_FILE, 'x', encoding='utf-8') as f:
+                f.write(f"USERNAME={username}\nHASHED_PASSWORD={password_hash}\n")
+        except FileExistsError:
+            pass
 
 
 def load_credentials():
@@ -46,11 +52,23 @@ def login():
             error = 'Terlalu banyak percobaan login gagal. Coba lagi dalam 5 menit.'
             return render_template('login.html', error=error)
 
-        admin_user, admin_password_hash = load_credentials()
+        try:
+            admin_user, admin_password_hash = load_credentials()
+        except (OSError, RuntimeError) as exc:
+            current_app.logger.error('Kredensial admin tidak tersedia: %s', exc)
+            return render_template(
+                'login.html',
+                error='Login belum dikonfigurasi. Atur ULTOID_ADMIN_PASSWORD atau siapkan data/credentials.txt.',
+            ), 503
+
+        if not admin_password_hash:
+            current_app.logger.error('Hash password admin kosong pada file kredensial.')
+            return render_template('login.html', error='Konfigurasi kredensial admin tidak valid.'), 503
+
         input_user = request.form.get('username')
         input_pass = request.form.get('password')
 
-        if input_user == admin_user and check_password_hash(admin_password_hash, input_pass):
+        if input_user == admin_user and input_pass is not None and check_password_hash(admin_password_hash, input_pass):
             reset_login_attempts(client_ip)
             session['logged_in'] = True
             return redirect(url_for('pages.space'))

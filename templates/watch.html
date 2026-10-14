@@ -76,9 +76,23 @@
             background: rgba(239, 68, 68, 0.15);
             border-left: 4px solid var(--accent);
         }
+        .stream-status {
+            position: absolute; inset: 0; z-index: 5;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 12px; padding: 24px; text-align: center;
+            background: rgba(0,0,0,.86); color: #e5e7eb;
+        }
+        .stream-status[hidden] { display: none; }
+        .stream-spinner {
+            width: 38px; height: 38px; border: 3px solid rgba(255,255,255,.2);
+            border-top-color: var(--accent); border-radius: 50%; animation: streamSpin .8s linear infinite;
+        }
+        .download-progress { width: min(420px, 100%); height: 7px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.15); }
+        .download-progress-fill { height: 100%; width: 0; background: var(--accent); transition: width .2s ease; }
+        @keyframes streamSpin { to { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="media-surface min-h-screen flex flex-col">
 
     <nav class="absolute top-0 left-0 w-full z-50 px-5 py-4 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
         <div class="max-w-screen-2xl mx-auto flex justify-between items-center pointer-events-auto">
@@ -95,6 +109,11 @@
             <div class="w-full aspect-video relative group bg-black/50 rounded-xl overflow-hidden">
                 <video id="player" playsinline controls data-poster="{{ movie.cover }}">
                 </video>
+                <div id="streamStatus" class="stream-status" role="status" aria-live="polite">
+                    <span class="stream-spinner" aria-hidden="true"></span>
+                    <strong id="streamStatusText">Menyiapkan pemutar...</strong>
+                    <button id="streamRetry" type="button" class="u-btn u-btn-ghost" hidden>Coba lagi</button>
+                </div>
             </div>
             
             <div class="w-full mt-4 px-4 lg:px-0">
@@ -104,6 +123,15 @@
                 </h2>
                 
                 <p class="text-sm text-gray-400 max-w-3xl mt-4">Gunakan ikon gerigi pada pemutar video (Settings) untuk mengatur kecepatan (Speed) dan ukuran subtitle (Captions).</p>
+                <div class="mt-5 flex flex-wrap items-center gap-3" aria-live="polite">
+                    <button id="downloadMovieBtn" type="button" class="u-btn u-btn-primary">Download untuk ditonton offline</button>
+                    <button id="deleteMovieDownloadBtn" type="button" class="u-btn u-btn-ghost" hidden>Hapus download</button>
+                    <button id="cancelMovieDownloadBtn" type="button" class="u-btn u-btn-ghost" hidden>Batalkan</button>
+                    <span id="movieDownloadStatus" class="text-sm text-gray-400">Memeriksa penyimpanan...</span>
+                    <div id="movieDownloadProgress" class="download-progress" role="progressbar" aria-label="Progres download" aria-valuemin="0" aria-valuemax="100" hidden>
+                        <div id="movieDownloadProgressFill" class="download-progress-fill"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -129,11 +157,14 @@
     </script>
 
     <script src="{{ url_for('static', filename='js/plyr/plyr.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/plyr/hls.min.js') }}"></script>
     <script>
         let player = null;
-        let hlsInstance = null;
         let episodes = [];
+        let playbackRequestId = 0;
+        let playbackStartupTimer = null;
+        let currentMedia = null;
+        let activeObjectUrl = null;
+        let downloadAbortController = null;
         let subSizeLevel = parseInt(localStorage.getItem('ultoid_sub_size') || '0');
 
         function updateSubSize() {
@@ -184,11 +215,224 @@
 
         setInterval(injectSubtitleControls, 500);
 
-        async function setupPlayer(videoPath, subPath, title) {
+        function setStreamStatus(message, options = {}) {
+            const overlay = document.getElementById('streamStatus');
+            overlay.hidden = false;
+            document.getElementById('streamStatusText').textContent = message;
+            const retry = document.getElementById('streamRetry');
+            retry.hidden = !options.retry;
+            document.querySelector('.stream-spinner').hidden = Boolean(options.retry);
+        }
+
+        function showStreamError(message, retryAction) {
+            clearTimeout(playbackStartupTimer);
+            setStreamStatus(message, { retry: true });
+            const retryButton = document.getElementById('streamRetry');
+            retryButton.onclick = retryAction;
+        }
+
+        function describeMediaError(videoElement) {
+            const error = videoElement.error;
+            if (!error) return 'Browser melaporkan kegagalan pemutaran tanpa detail.';
+            const descriptions = {
+                1: 'pemutaran dibatalkan',
+                2: 'gagal mengambil data video dari server',
+                3: 'browser gagal mendekode data video',
+                4: 'format atau codec video tidak didukung browser',
+            };
+            return `${descriptions[error.code] || 'kesalahan media'} (kode ${error.code})`;
+        }
+
+        async function getMovieFileHandle(videoPath, create) {
+            if (!navigator.storage || typeof navigator.storage.getDirectory !== 'function') {
+                throw new Error('Browser ini tidak mendukung penyimpanan download offline.');
+            }
+            if (!crypto.subtle) {
+                throw new Error('Browser tidak menyediakan fitur keamanan yang diperlukan untuk penyimpanan offline.');
+            }
+            const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(videoPath));
+            const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+            const extension = videoPath.match(/\.[a-z0-9]{1,8}$/i);
+            const fileName = `movie-${key}${extension ? extension[0].toLowerCase() : '.video'}`;
+            const root = await navigator.storage.getDirectory();
+            let directory;
+            try {
+                directory = await root.getDirectoryHandle('ultoid-movie-downloads', { create });
+            } catch (error) {
+                if (!create && error.name === 'NotFoundError') return null;
+                throw error;
+            }
+            try {
+                return await directory.getFileHandle(fileName, { create });
+            } catch (error) {
+                if (!create && error.name === 'NotFoundError') return null;
+                throw error;
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes) || bytes < 0) return '';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let size = bytes;
+            let unit = 0;
+            while (size >= 1024 && unit < units.length - 1) {
+                size /= 1024;
+                unit++;
+            }
+            return `${size.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+        }
+
+        async function updateMovieDownloadControls(videoPath) {
+            const downloadButton = document.getElementById('downloadMovieBtn');
+            const deleteButton = document.getElementById('deleteMovieDownloadBtn');
+            const status = document.getElementById('movieDownloadStatus');
+            try {
+                const handle = await getMovieFileHandle(videoPath, false);
+                const file = handle ? await handle.getFile() : null;
+                if (!currentMedia || currentMedia.videoPath !== videoPath) return;
+                downloadButton.disabled = false;
+                deleteButton.hidden = true;
+                if (file && file.size > 0) {
+                    downloadButton.hidden = true;
+                    deleteButton.hidden = false;
+                    status.textContent = `Tersimpan offline (${formatBytes(file.size)}).`;
+                } else {
+                    downloadButton.hidden = false;
+                    status.textContent = 'Belum diunduh ke perangkat ini.';
+                }
+            } catch (error) {
+                if (!currentMedia || currentMedia.videoPath !== videoPath) return;
+                downloadButton.disabled = false;
+                downloadButton.hidden = false;
+                deleteButton.hidden = true;
+                status.textContent = `Penyimpanan offline tidak tersedia: ${error.message}`;
+            }
+        }
+
+        async function startMovieDownload() {
+            if (!currentMedia || downloadAbortController) return;
+            const media = { ...currentMedia };
+            const downloadButton = document.getElementById('downloadMovieBtn');
+            const deleteButton = document.getElementById('deleteMovieDownloadBtn');
+            const cancelButton = document.getElementById('cancelMovieDownloadBtn');
+            const status = document.getElementById('movieDownloadStatus');
+            const progress = document.getElementById('movieDownloadProgress');
+            const fill = document.getElementById('movieDownloadProgressFill');
+            let writable = null;
+            downloadAbortController = new AbortController();
+            downloadButton.disabled = true;
+            deleteButton.hidden = true;
+            cancelButton.hidden = false;
+            progress.hidden = false;
+            fill.style.width = '0%';
+            progress.removeAttribute('aria-valuenow');
+            try {
+                const handle = await getMovieFileHandle(media.videoPath, true);
+                status.textContent = 'Mengunduh video...';
+
+                const response = await fetch(
+                    `/api/movies/download?path=${encodeURIComponent(media.videoPath)}`,
+                    { signal: downloadAbortController.signal }
+                );
+                if (!response.ok || !response.body) {
+                    throw new Error(response.status === 404 ? 'File video tidak ditemukan.' : `Server menolak download (HTTP ${response.status}).`);
+                }
+                const total = Number(response.headers.get('Content-Length')) || 0;
+                if (total && typeof navigator.storage.estimate === 'function') {
+                    const storage = await navigator.storage.estimate();
+                    if (Number.isFinite(storage.quota) && storage.quota - (storage.usage || 0) < total) {
+                        throw new Error(`Ruang penyimpanan browser tidak cukup. Ukuran video ${formatBytes(total)}.`);
+                    }
+                }
+
+                writable = await handle.createWritable();
+                const reader = response.body.getReader();
+                let received = 0;
+                while (true) {
+                    const result = await reader.read();
+                    if (result.done) break;
+                    await writable.write(result.value);
+                    received += result.value.byteLength;
+                    if (total) {
+                        const percent = Math.min(100, Math.floor(received / total * 100));
+                        fill.style.width = `${percent}%`;
+                        progress.setAttribute('aria-valuenow', String(percent));
+                        status.textContent = `Mengunduh... ${percent}% (${formatBytes(received)} / ${formatBytes(total)})`;
+                    } else {
+                        status.textContent = `Mengunduh... ${formatBytes(received)}`;
+                    }
+                }
+                if (total && received !== total) {
+                    throw new Error(`Download tidak lengkap (${formatBytes(received)} dari ${formatBytes(total)}).`);
+                }
+                await writable.close();
+                writable = null;
+                progress.hidden = true;
+                await updateMovieDownloadControls(currentMedia && currentMedia.videoPath !== media.videoPath
+                    ? currentMedia.videoPath
+                    : media.videoPath);
+                if (currentMedia && currentMedia.videoPath === media.videoPath) {
+                    status.textContent = `Download selesai (${formatBytes(received)}).`;
+                    await setupPlayer(media.videoPath, media.subPath, media.title, {
+                        currentTime: document.getElementById('player').currentTime,
+                        shouldPlay: !document.getElementById('player').paused,
+                    });
+                }
+            } catch (error) {
+                if (writable) {
+                    try {
+                        await writable.abort();
+                    } catch (abortError) {
+                        console.warn('Could not abort incomplete movie download:', abortError);
+                    }
+                }
+                document.getElementById('movieDownloadProgress').hidden = true;
+                if (currentMedia && currentMedia.videoPath !== media.videoPath) {
+                    await updateMovieDownloadControls(currentMedia.videoPath);
+                } else {
+                    await updateMovieDownloadControls(media.videoPath);
+                    status.textContent = error.name === 'AbortError'
+                        ? 'Download dibatalkan.'
+                        : `Download gagal: ${error.message}`;
+                }
+            } finally {
+                downloadAbortController = null;
+                cancelButton.hidden = true;
+                downloadButton.disabled = false;
+            }
+        }
+
+        async function deleteMovieDownload() {
+            if (!currentMedia) return;
+            const media = { ...currentMedia };
+            const status = document.getElementById('movieDownloadStatus');
+            try {
+                const handle = await getMovieFileHandle(media.videoPath, false);
+                if (handle) await handle.remove();
+                const pathToRefresh = currentMedia && currentMedia.videoPath !== media.videoPath
+                    ? currentMedia.videoPath
+                    : media.videoPath;
+                await updateMovieDownloadControls(pathToRefresh);
+                if (pathToRefresh === media.videoPath) status.textContent = 'Download lokal telah dihapus.';
+            } catch (error) {
+                status.textContent = `Gagal menghapus download: ${error.message}`;
+            }
+        }
+
+        function movieMimeType(videoPath) {
+            const extension = videoPath.split('.').pop().toLowerCase();
+            return {
+                mkv: 'video/x-matroska',
+                mp4: 'video/mp4',
+                webm: 'video/webm',
+            }[extension] || 'application/octet-stream';
+        }
+
+        async function setupPlayer(videoPath, subPath, title, resume = null) {
+            const requestId = ++playbackRequestId;
+            currentMedia = { videoPath, subPath, title };
+            clearTimeout(playbackStartupTimer);
             const videoElement = document.getElementById('player');
-            const res = await fetch('/api/movies/check_hls?path=' + encodeURIComponent(videoPath));
-            const hlsData = await res.json();
-            
             const defaultOptions = {
                 iconUrl: "{{ url_for('static', filename='js/plyr/plyr.svg') }}",
                 controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'fullscreen'],
@@ -199,62 +443,107 @@
                 i18n: { speed: 'Kecepatan', normal: 'Normal', captions: 'Subtitle', disabled: 'Mati', enabled: 'Nyala', quality: 'Kualitas' }
             };
 
-            if (player) { player.destroy(); player = null; }
-            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-            
-            videoElement.innerHTML = ''; // clear native tracks
-            const videoSrcUrl = '/api/movies/stream?path=' + encodeURIComponent(videoPath);
-            const subSrcUrl = subPath ? '/api/movies/stream?path=' + encodeURIComponent(subPath) : null;
-            
-            if (hlsData.hls) {
-                const hlsUrl = '/api/movies/stream?path=' + encodeURIComponent(hlsData.hls_path);
-                if (Hls.isSupported()) {
-                    hlsInstance = new Hls();
-                    hlsInstance.loadSource(hlsUrl);
-                    hlsInstance.attachMedia(videoElement);
-                    
-                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function () {
-                        const availableQualities = hlsInstance.levels.map((l) => l.height);
-                        availableQualities.unshift(0); // Auto
-                        defaultOptions.quality = {
-                            default: 0,
-                            options: availableQualities,
-                            forced: true,        
-                            onChange: (e) => {
-                                if(hlsInstance) {
-                                    if(e === 0) hlsInstance.currentLevel = -1;
-                                    else {
-                                        const li = hlsInstance.levels.findIndex(l => l.height === e);
-                                        hlsInstance.currentLevel = li;
-                                    }
-                                }
-                            }
-                        };
-                        
-                        player = new Plyr(videoElement, defaultOptions);
-                        const sources = [{ src: hlsUrl, type: 'application/x-mpegURL' }];
-                        const tracks = subSrcUrl ? [{ kind: 'captions', label: 'Indonesia', srclang: 'id', src: subSrcUrl, default: true }] : [];
-                        player.source = { type: 'video', title: title, sources, tracks };
-                        player.play().catch(()=>{});
-                    });
-                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                    player = new Plyr(videoElement, defaultOptions);
-                    const sources = [{ src: hlsUrl, type: 'application/x-mpegURL' }];
-                    const tracks = subSrcUrl ? [{ kind: 'captions', label: 'Indonesia', srclang: 'id', src: subSrcUrl, default: true }] : [];
-                    player.source = { type: 'video', title: title, sources, tracks };
-                    player.play().catch(()=>{});
+            videoElement.pause();
+            videoElement.onplaying = null;
+            videoElement.oncanplay = null;
+            videoElement.onerror = null;
+            videoElement.onloadedmetadata = null;
+            videoElement.removeAttribute('src');
+            videoElement.querySelectorAll('source, track').forEach(node => node.remove());
+            videoElement.load();
+            if (activeObjectUrl) {
+                URL.revokeObjectURL(activeObjectUrl);
+                activeObjectUrl = null;
+            }
+            setStreamStatus('Memuat video MKV...');
+            await updateMovieDownloadControls(videoPath);
+            if (requestId !== playbackRequestId) return;
+
+            try {
+                let downloadedFile = null;
+                try {
+                    const handle = await getMovieFileHandle(videoPath, false);
+                    downloadedFile = handle ? await handle.getFile() : null;
+                    if (downloadedFile && downloadedFile.size === 0) downloadedFile = null;
+                } catch (error) {
+                    document.getElementById('movieDownloadStatus').textContent = `Penyimpanan offline tidak tersedia: ${error.message}`;
                 }
-            } else {
-                player = new Plyr(videoElement, defaultOptions);
-                const sources = [{ src: videoSrcUrl, type: 'video/mp4' }];
-                const tracks = subSrcUrl ? [{ kind: 'captions', label: 'Indonesia', srclang: 'id', src: subSrcUrl, default: true }] : [];
-                player.source = { type: 'video', title: title, sources, tracks };
-                player.play().catch(()=>{});
+                if (requestId !== playbackRequestId) return;
+
+                const subSrcUrl = subPath ? '/api/movies/stream?path=' + encodeURIComponent(subPath) : null;
+                if (subSrcUrl) {
+                    const track = document.createElement('track');
+                    track.kind = 'captions';
+                    track.label = 'Indonesia';
+                    track.srclang = 'id';
+                    track.src = subSrcUrl;
+                    track.default = true;
+                    videoElement.appendChild(track);
+                }
+
+                if (!player) player = new Plyr(videoElement, defaultOptions);
+                const source = document.createElement('source');
+                if (downloadedFile) {
+                    activeObjectUrl = URL.createObjectURL(downloadedFile);
+                    source.src = activeObjectUrl;
+                    document.getElementById('movieDownloadStatus').textContent = `Memutar file offline (${formatBytes(downloadedFile.size)}).`;
+                } else {
+                    source.src = '/api/movies/stream?path=' + encodeURIComponent(videoPath);
+                }
+                source.type = movieMimeType(videoPath);
+                videoElement.appendChild(source);
+                const expectedSource = new URL(source.src, document.baseURI).href;
+                const isCurrentSource = () => (
+                    requestId === playbackRequestId
+                    && videoElement.currentSrc === expectedSource
+                );
+                const hideLoadingOverlay = () => {
+                    if (!isCurrentSource()) return;
+                    clearTimeout(playbackStartupTimer);
+                    document.getElementById('streamStatus').hidden = true;
+                };
+                videoElement.onplaying = hideLoadingOverlay;
+                videoElement.oncanplay = hideLoadingOverlay;
+                videoElement.onerror = () => {
+                    if (!isCurrentSource()) return;
+                    const details = describeMediaError(videoElement);
+                    console.error('Movie playback failed:', details, videoElement.error);
+                    showStreamError(
+                        `MKV gagal diputar: ${details}. Jika kode 3 atau 4, browser kemungkinan tidak mendukung codec di dalam file.`,
+                        () => setupPlayer(videoPath, subPath, title)
+                    );
+                };
+                if (resume && resume.currentTime > 0) {
+                    videoElement.onloadedmetadata = () => {
+                        if (!isCurrentSource()) return;
+                        videoElement.currentTime = Math.min(resume.currentTime, videoElement.duration || resume.currentTime);
+                        if (resume.shouldPlay) videoElement.play().catch(() => {});
+                    };
+                }
+                videoElement.load();
+                if (!resume || resume.shouldPlay) player.play().catch(() => {});
+                playbackStartupTimer = setTimeout(() => {
+                    if (isCurrentSource() && !document.getElementById('streamStatus').hidden) {
+                        showStreamError(
+                            `Video belum siap diputar: ${describeMediaError(videoElement)}.`,
+                            () => setupPlayer(videoPath, subPath, title)
+                        );
+                    }
+                }, 30000);
+            } catch (error) {
+                if (requestId === playbackRequestId) {
+                    showStreamError(`Gagal memuat video: ${error.message}`, () => setupPlayer(videoPath, subPath, title));
+                }
             }
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
             updateSubSize();
+            document.getElementById('downloadMovieBtn').addEventListener('click', startMovieDownload);
+            document.getElementById('deleteMovieDownloadBtn').addEventListener('click', deleteMovieDownload);
+            document.getElementById('cancelMovieDownloadBtn').addEventListener('click', () => {
+                if (downloadAbortController) downloadAbortController.abort();
+            });
             if(movieData.type === 'series') {
                 await loadSeriesFolder();
             } else {

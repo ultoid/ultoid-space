@@ -5,13 +5,10 @@ PyMuPDF
 pymupdf4llm
 requests
 beautifulsoup4
-openpyxl
 markdown
 python-docx
 langdetect
-apscheduler
-yt-dlp
+yt-dlp>=2026.8.19
 Pillow
 qrcode[pil]
 python-barcode
-apify-client

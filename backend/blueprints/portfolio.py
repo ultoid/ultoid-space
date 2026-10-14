@@ -1,7 +1,7 @@
 import os
 import json
 import uuid
-from flask import Blueprint, render_template, request, jsonify, send_from_directory
+from flask import Blueprint, abort, render_template, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from ..utils import login_required
 from ..config import PORTFOLIO_FILE
@@ -191,5 +191,7 @@ def upload_image():
 
 @portfolio_bp.route('/<path:filename>')
 def download_portfolio_file(filename):
-    portfolio_dir = os.path.join(os.getcwd(), 'portfolio')
+    if filename != 'Ananto_Portfolio.pdf':
+        abort(404)
+    portfolio_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'portfolio')
     return send_from_directory(portfolio_dir, filename)

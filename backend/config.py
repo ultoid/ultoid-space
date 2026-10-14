@@ -24,20 +24,11 @@ DEFAULT_FOLDERS = [
     'Translate',
     'Download',
     'Wallpaper',
-    'Social Media Report/IG Report',
-    'Social Media Report/TT Report',
-    'Social Media Report/FB Report',
-    'Google Maps Report',
     'Movies'
 ]
 
 ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 
-IG_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'ig_accounts.json')
-TT_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'tt_accounts.json')
-FB_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'fb_accounts.json')
-GMAPS_ACCOUNTS_FILE = os.path.join(DATA_FOLDER, 'gmaps_accounts.json')
-GMAPS_REVIEWS_FILE = os.path.join(DATA_FOLDER, 'gmaps_reviews.json')
 GAMES_FILE = os.path.join(DATA_FOLDER, 'games.json')
 SETTINGS_FILE = 'settings.json'
 SAVES_FOLDER = os.path.join(DATA_FOLDER, 'saves')
@@ -47,8 +38,7 @@ SHORTLINK_DOMAIN = 'https://anugerahgmb.com/s/'
 
 RESERVED_ROUTES = {
     'login', 'logout', 'dashboard', 'space', 'api', 'static', 'templates',
-    'translate', 'downloader', 'wallpaper', 'socmed-dashboard',
-    'gmaps-analytic', 'qrcode', 'portfolio', 'task', 'notes', 'streaming',
+    'translate', 'downloader', 'wallpaper', 'qrcode', 'portfolio', 'task', 'notes', 'streaming',
     'emulator', 'shortlink'
 }
 
@@ -87,4 +77,3 @@ def ensure_directories():
     os.makedirs(SAVES_FOLDER, exist_ok=True)
     for folder in DEFAULT_FOLDERS:
         os.makedirs(os.path.join(FM_ROOT, folder), exist_ok=True)
-
