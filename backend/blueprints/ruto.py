@@ -2,6 +2,7 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 import time
 import uuid
 from datetime import date, datetime, time as datetime_time, timedelta, timezone
@@ -511,6 +512,38 @@ def _update_chat_memory(connection, provider, conversation_id, title, history):
     return response
 
 
+def _background_memory_update(app, provider_name, model_name, provider, conversation_id, title, history):
+    """Update chat memory in a background thread so the main response is not delayed."""
+    with app.app_context():
+        connection = _database()
+        try:
+            memory_attempt = 0
+            while True:
+                memory_attempt += 1
+                try:
+                    memory_response = _update_chat_memory(
+                        connection, provider, conversation_id, title, history
+                    )
+                    _record_usage(connection, provider_name, model_name, True, memory_response)
+                    connection.commit()
+                    break
+                except ProviderError as exc:
+                    _record_usage(connection, provider_name, model_name, False)
+                    connection.commit()
+                    if exc.status_code in (500, 502, 503, 504) and memory_attempt < 3:
+                        app.logger.warning(
+                            'Ruto chat memory update received transient HTTP %s; retrying attempt %s/3',
+                            exc.status_code,
+                            memory_attempt + 1,
+                        )
+                        time.sleep(memory_attempt)
+                        continue
+                    app.logger.warning('Ruto chat memory update failed: %s', exc)
+                    break
+        finally:
+            connection.close()
+
+
 def _system_prompt(connection, github_context='', chat_memories=None, query='', selected_memory=''):
     knowledge_root = _data_dir()
     selected_skills = []
@@ -809,40 +842,23 @@ def send_message(conversation_id):
             (title, conversation_id),
         )
         connection.commit()
-        memory_warning = None
         history.append({'role': 'assistant', 'content': provider_response.text})
-        memory_attempt = 0
-        while True:
-            memory_attempt += 1
-            try:
-                memory_response = _update_chat_memory(
-                    connection, provider, conversation_id, title, history
-                )
-                _record_usage(connection, provider_name, model_name, True, memory_response)
-                break
-            except ProviderError as exc:
-                _record_usage(connection, provider_name, model_name, False)
-                if exc.status_code in (500, 502, 503, 504) and memory_attempt < 3:
-                    current_app.logger.warning(
-                        'Ruto chat memory update received transient HTTP %s; retrying attempt %s/3',
-                        exc.status_code,
-                        memory_attempt + 1,
-                    )
-                    time.sleep(memory_attempt)
-                    continue
-                memory_warning = (
-                    'Balasan tersimpan, tetapi ringkasan chat memori gagal diperbarui: '
-                    f'{exc}'
-                )
-                current_app.logger.warning('Ruto chat memory update failed: %s', exc)
-                break
-        connection.commit()
+        message_count = len(history)
+        # Throttle: update memory for the first 4 messages (2 exchanges), then every
+        # 8 messages (4 exchanges). This avoids a 2nd AI call on every single message.
+        # The update runs in a daemon thread so the response is returned immediately.
+        if message_count <= 4 or message_count % 8 == 0:
+            app = current_app._get_current_object()
+            threading.Thread(
+                target=_background_memory_update,
+                args=(app, provider_name, model_name, provider, conversation_id, title, list(history)),
+                daemon=True,
+            ).start()
         return jsonify({
             'conversation_id': conversation_id,
             'user': text,
             'assistant': provider_response.text,
             'title': title,
-            'memory_warning': memory_warning,
         })
     finally:
         connection.close()

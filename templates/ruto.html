@@ -183,7 +183,7 @@
         .send-button:disabled { opacity: .45; cursor: wait; }
         .disclaimer { color: var(--ruto-muted); text-align: center; font-size: 11px; margin: 9px auto 0; max-width: 800px; }
         .notice { max-width: 800px; margin: 0 auto 16px; border: 1px solid #bd6b4a; color: var(--ruto-text); background: rgba(189,107,74,.12); padding: 10px 13px; border-radius: 10px; }
-        .settings-dialog { width: min(680px, calc(100vw - 28px)); max-height: 90dvh; border: 1px solid var(--ruto-border); border-radius: 16px; padding: 0; background: var(--ruto-bg); color: var(--ruto-text); }
+        .settings-dialog { width: min(680px, calc(100vw - 28px)); max-height: 90dvh; border: 1px solid var(--ruto-border); border-radius: 16px; padding: 0; background: var(--ruto-bg); color: var(--ruto-text); margin: auto; }
         .settings-dialog::backdrop { background: rgba(0,0,0,.65); backdrop-filter: blur(3px); }
         .confirm-dialog { width: min(440px, calc(100vw - 28px)); border: 1px solid var(--ruto-border); border-radius: 16px; padding: 0; background: var(--ruto-panel); color: var(--ruto-text); box-shadow: 0 20px 70px rgba(0,0,0,.45); }
         .confirm-dialog::backdrop { background: rgba(0,0,0,.68); backdrop-filter: blur(3px); }
@@ -349,8 +349,13 @@
         <section class="settings-section">
             <h3>Core memory</h3>
             <p class="settings-help">Memori dasar tetap dan bisa kamu edit, termasuk panduan Nusvanir dan rujukan kanonis: <code>https://github.com/ultoid/nusvanir</code>. Disimpan sebagai <code>data/ruto/core_memory.md</code>.</p>
-            <textarea id="memoryInput" class="settings-textarea" maxlength="50000" placeholder="Preferensi, fakta, atau konteks dasar yang ingin Ruto ingat…"></textarea>
-            <div class="settings-controls"><button id="saveMemoryButton" class="small-button" type="button">Simpan core memory</button><span id="memoryStatus" class="settings-help"></span></div>
+            <textarea id="memoryInput" class="settings-textarea memory-readonly" maxlength="50000" placeholder="Preferensi, fakta, atau konteks dasar yang ingin Ruto ingat…" readonly></textarea>
+            <div class="settings-controls">
+                <button id="editMemoryButton" class="small-button" type="button">Edit core memory</button>
+                <button id="saveMemoryButton" class="small-button hidden" type="button">Simpan core memory</button>
+                <button id="cancelMemoryButton" class="small-button hidden" type="button">Batal</button>
+                <span id="memoryStatus" class="settings-help"></span>
+            </div>
         </section>
         <section class="settings-section">
             <h3>Chat memory</h3>
@@ -419,7 +424,7 @@
         notice.classList.add('hidden');
     }
 
-    function addMessage(role, content, withActions = false, typingDurationMs = null) {
+    function addMessage(role, content, withActions = false, typingDurationMs = null, suppressScroll = false) {
         document.getElementById('welcome').classList.add('hidden');
         const item = document.createElement('article');
         item.className = `message ${role}`;
@@ -457,7 +462,7 @@
         }
         item.append(avatar, body);
         messageList.append(item);
-        messagesElement.scrollTop = messagesElement.scrollHeight;
+        if (!suppressScroll) messagesElement.scrollTop = messagesElement.scrollHeight;
         return text;
     }
 
@@ -681,6 +686,7 @@
                 document.getElementById('welcome').classList.remove('hidden');
                 document.getElementById('deleteChatButton').classList.add('hidden');
                 document.getElementById('chatTitle').textContent = 'Ruto V1';
+                history.pushState(null, '', location.pathname);
             }
             await refreshConversations();
         } catch (error) {
@@ -688,18 +694,28 @@
         }
     }
 
-    async function openConversation(id) {
+    async function openConversation(id, { pushHash = true } = {}) {
         clearNotice();
         try {
             const data = await api(`/api/ruto/conversations/${encodeURIComponent(id)}`);
             currentConversationId = data.id;
             messageList.replaceChildren();
             document.getElementById('welcome').classList.toggle('hidden', data.messages.length > 0);
-            for (const message of data.messages) addMessage(message.role, message.content, message.role === 'assistant');
+            // Render semua pesan historis tanpa scroll per-pesan
+            for (const message of data.messages) {
+                addMessage(message.role, message.content, message.role === 'assistant', null, true);
+            }
+            // Langsung lompat ke bawah tanpa animasi smooth
+            messagesElement.style.scrollBehavior = 'instant';
+            messagesElement.scrollTop = messagesElement.scrollHeight;
+            messagesElement.style.scrollBehavior = '';
             document.getElementById('chatTitle').textContent = data.title;
             document.getElementById('deleteChatButton').classList.remove('hidden');
             await refreshConversations();
             document.querySelector('.ruto-sidebar').classList.remove('mobile-history-open');
+            if (pushHash && location.hash !== `#${data.id}`) {
+                history.pushState(null, '', `#${data.id}`);
+            }
         } catch (error) {
             showNotice(error.message);
         }
@@ -716,6 +732,7 @@
             await refreshConversations();
             messageInput.focus();
             document.querySelector('.ruto-sidebar').classList.remove('mobile-history-open');
+            history.pushState(null, '', `#${conversation.id}`);
         } catch (error) {
             showNotice(error.message);
         }
@@ -731,6 +748,7 @@
                 const conversation = await api('/api/ruto/conversations', {method: 'POST', body: JSON.stringify({})});
                 currentConversationId = conversation.id;
                 document.getElementById('deleteChatButton').classList.remove('hidden');
+                history.pushState(null, '', `#${conversation.id}`);
             }
             addMessage('user', text.trim());
             const pending = document.createElement('article');
@@ -764,7 +782,7 @@
             pending.remove();
             await typeAssistantReply(result.assistant);
             document.getElementById('chatTitle').textContent = result.title;
-            if (result.memory_warning) showNotice(result.memory_warning);
+            if (location.hash !== `#${currentConversationId}`) history.replaceState(null, '', `#${currentConversationId}`);
             await refreshConversations();
         } catch (error) {
             messageInput.value = text;
@@ -800,7 +818,15 @@
                 api('/api/ruto/usage'),
                 api('/api/ruto/model')
             ]);
-            document.getElementById('memoryInput').value = data.core_memory;
+            const memoryInput = document.getElementById('memoryInput');
+            memoryInput.value = data.core_memory;
+            // Reset ke read-only setiap kali settings dibuka
+            memoryInput.readOnly = true;
+            memoryInput.classList.add('memory-readonly');
+            document.getElementById('editMemoryButton').classList.remove('hidden');
+            document.getElementById('saveMemoryButton').classList.add('hidden');
+            document.getElementById('cancelMemoryButton').classList.add('hidden');
+            document.getElementById('memoryStatus').textContent = '';
             renderSkills(data.skills);
             renderChatMemories(data.chat_memories);
             renderUsage(usage);
@@ -1024,11 +1050,37 @@
             status.textContent = error.message;
         }
     });
+    document.getElementById('editMemoryButton').addEventListener('click', () => {
+        const input = document.getElementById('memoryInput');
+        input.readOnly = false;
+        input.classList.remove('memory-readonly');
+        input.focus();
+        document.getElementById('editMemoryButton').classList.add('hidden');
+        document.getElementById('saveMemoryButton').classList.remove('hidden');
+        document.getElementById('cancelMemoryButton').classList.remove('hidden');
+        document.getElementById('memoryStatus').textContent = '';
+    });
+    document.getElementById('cancelMemoryButton').addEventListener('click', () => {
+        const input = document.getElementById('memoryInput');
+        input.readOnly = true;
+        input.classList.add('memory-readonly');
+        document.getElementById('editMemoryButton').classList.remove('hidden');
+        document.getElementById('saveMemoryButton').classList.add('hidden');
+        document.getElementById('cancelMemoryButton').classList.add('hidden');
+        document.getElementById('memoryStatus').textContent = '';
+    });
     document.getElementById('saveMemoryButton').addEventListener('click', async () => {
         const status = document.getElementById('memoryStatus');
+        const input = document.getElementById('memoryInput');
         try {
-            await api('/api/ruto/knowledge/core-memory', {method: 'PUT', body: JSON.stringify({content: document.getElementById('memoryInput').value})});
+            await api('/api/ruto/knowledge/core-memory', {method: 'PUT', body: JSON.stringify({content: input.value})});
             status.textContent = 'Core memory tersimpan.';
+            // Kembali ke read-only setelah save
+            input.readOnly = true;
+            input.classList.add('memory-readonly');
+            document.getElementById('editMemoryButton').classList.remove('hidden');
+            document.getElementById('saveMemoryButton').classList.add('hidden');
+            document.getElementById('cancelMemoryButton').classList.add('hidden');
         } catch (error) {
             status.textContent = error.message;
         }
@@ -1079,12 +1131,32 @@
         deleteConversation(currentConversationId, title);
     });
 
+    window.addEventListener('hashchange', async () => {
+        const id = location.hash.slice(1);
+        if (id && id !== currentConversationId) {
+            await openConversation(id, { pushHash: false });
+        } else if (!id && currentConversationId) {
+            currentConversationId = null;
+            messageList.replaceChildren();
+            document.getElementById('welcome').classList.remove('hidden');
+            document.getElementById('deleteChatButton').classList.add('hidden');
+            document.getElementById('chatTitle').textContent = 'Ruto V1';
+            await refreshConversations();
+        }
+    });
+
     (async function initialize() {
         try {
             await loadStatus();
             await refreshConversations();
-            const existing = await api('/api/ruto/conversations');
-            if (existing.length) await openConversation(existing[0].id);
+            const hashId = location.hash.slice(1);
+            if (hashId) {
+                // Restore conversation from URL hash on page load/reload
+                await openConversation(hashId, { pushHash: false });
+            } else {
+                const existing = await api('/api/ruto/conversations');
+                if (existing.length) await openConversation(existing[0].id);
+            }
         } catch (error) {
             showNotice(error.message);
         }
