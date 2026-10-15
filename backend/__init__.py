@@ -10,6 +10,7 @@ from .blueprints.wallpaper import wallpaper_bp
 from .blueprints.qrcode import qrcode_bp
 from .blueprints.portfolio import portfolio_bp
 from .blueprints.shortlink import shortlink_bp
+from .blueprints.ruto import ruto_bp
 
 
 def create_app():
@@ -39,6 +40,7 @@ def create_app():
     app.register_blueprint(qrcode_bp)
     app.register_blueprint(portfolio_bp)
     app.register_blueprint(shortlink_bp)
+    app.register_blueprint(ruto_bp)
 
     @app.after_request
     def add_security_headers(response):

@@ -70,6 +70,7 @@ def login():
 
         if input_user == admin_user and input_pass is not None and check_password_hash(admin_password_hash, input_pass):
             reset_login_attempts(client_ip)
+            session.pop('ruto_csrf_token', None)
             session['logged_in'] = True
             return redirect(url_for('pages.space'))
         else:
@@ -85,4 +86,5 @@ def login():
 @auth_bp.route('/logout', endpoint='logout')
 def logout():
     session.pop('logged_in', None)
+    session.pop('ruto_csrf_token', None)
     return redirect(url_for('auth.login'))

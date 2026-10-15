@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="ruto-csrf-token" content="{{ csrf_token }}">
+    <title>Ruto V1 — Ultoid Space</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='js/css/ultoid-theme.css') }}">
+    <script>
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('ultoid_theme') || 'dark');
+    </script>
+    <style>
+        :root {
+            color-scheme: dark;
+            --ruto-bg: #212121;
+            --ruto-panel: #171717;
+            --ruto-hover: #2f2f2f;
+            --ruto-border: rgba(255,255,255,.1);
+            --ruto-text: #ececec;
+            --ruto-muted: #a0a0a0;
+            --ruto-accent: #10a37f;
+        }
+        [data-theme="light"] {
+            color-scheme: light;
+            --ruto-bg: #fff;
+            --ruto-panel: #f7f7f8;
+            --ruto-hover: #ececf1;
+            --ruto-border: rgba(0,0,0,.12);
+            --ruto-text: #222;
+            --ruto-muted: #686868;
+            --ruto-accent: #087f62;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            background: var(--ruto-bg);
+            color: var(--ruto-text);
+            font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        button, textarea, input { font: inherit; }
+        button { color: inherit; }
+        .ruto-app { display: flex; height: 100dvh; overflow: hidden; }
+        .ruto-sidebar {
+            width: 270px; flex: 0 0 270px; display: flex; flex-direction: column;
+            gap: 14px; padding: 14px 10px; background: var(--ruto-panel);
+        }
+        .ruto-brand { display: flex; align-items: center; gap: 10px; padding: 8px 10px; font-weight: 700; font-size: 17px; }
+        .ruto-brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 11px; background: var(--ruto-accent); color: white; font-size: 19px; }
+        .ruto-button, .conversation-button {
+            width: 100%; display: flex; align-items: center; gap: 10px; border: 1px solid var(--ruto-border);
+            border-radius: 10px; padding: 10px 12px; background: transparent; cursor: pointer; text-align: left;
+        }
+        .ruto-button:hover, .conversation-button:hover, .conversation-button.active { background: var(--ruto-hover); }
+        .ruto-button.primary { border-color: var(--ruto-accent); }
+        .usage-summary { white-space: pre-line; }
+        .conversation-row { display: flex; align-items: center; gap: 3px; margin: 2px 0; }
+        .mobile-history-button { display: none; }
+        .conversation-list { flex: 1; overflow-y: auto; min-height: 0; }
+        .conversation-heading { color: var(--ruto-muted); font-size: 12px; font-weight: 600; padding: 8px 10px; }
+        .conversation-button { flex: 1; width: auto; min-width: 0; border-color: transparent; padding: 8px 10px; margin: 0; }
+        .conversation-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .conversation-delete {
+            flex: 0 0 auto; border: 0; border-radius: 7px; background: transparent; color: var(--ruto-muted);
+            padding: 6px 8px; cursor: pointer; opacity: 0;
+        }
+        .conversation-row:hover .conversation-delete, .conversation-delete:focus-visible { opacity: 1; }
+        .conversation-delete:hover { background: rgba(220, 70, 70, .15); color: #ef7777; }
+        .conversation-empty { color: var(--ruto-muted); padding: 8px 10px; font-size: 12px; }
+        .sidebar-footer { display: grid; gap: 6px; }
+        .ruto-main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+        .ruto-header {
+            height: 58px; flex: 0 0 58px; display: flex; align-items: center; gap: 12px;
+            padding: 0 22px; border-bottom: 1px solid var(--ruto-border);
+        }
+        .ruto-header-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ruto-header-meta { margin-left: auto; color: var(--ruto-muted); font-size: 12px; }
+        .icon-button {
+            border: 0; border-radius: 8px; background: transparent; padding: 8px; cursor: pointer;
+        }
+        .icon-button:hover { background: var(--ruto-hover); }
+        .search-dialog {
+            width: min(1100px, calc(100vw - 48px)); max-width: none; max-height: min(86dvh, 760px);
+            padding: 0; border: 1px solid var(--ruto-border); border-radius: 24px;
+            background: var(--ruto-panel); color: var(--ruto-text); overflow: hidden;
+            box-shadow: 0 24px 80px rgba(0,0,0,.4);
+        }
+        .search-dialog::backdrop { background: rgba(0,0,0,.62); backdrop-filter: blur(3px); }
+        .search-modal { display: flex; flex-direction: column; min-height: min(660px, 78dvh); }
+        .search-modal-header {
+            display: flex; align-items: center; gap: 16px; padding: 22px 28px 10px;
+        }
+        .search-modal-input {
+            flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+            color: var(--ruto-text); font-size: 19px; padding: 8px 4px;
+        }
+        .search-modal-input::placeholder { color: var(--ruto-muted); }
+        .search-modal-actions { display: flex; align-items: center; gap: 10px; color: var(--ruto-muted); }
+        .search-clear {
+            border: 0; background: transparent; color: inherit; padding: 7px 10px;
+            border-radius: 8px; cursor: pointer;
+        }
+        .search-clear:hover { background: var(--ruto-hover); color: var(--ruto-text); }
+        .search-divider { width: 1px; height: 28px; background: var(--ruto-border); }
+        .search-tabs { display: flex; gap: 8px; padding: 8px 18px 16px; }
+        .search-tab {
+            border: 0; border-radius: 999px; padding: 9px 16px; background: transparent;
+            color: var(--ruto-muted); font-size: 14px;
+        }
+        .search-tab.active { background: var(--ruto-hover); color: var(--ruto-text); }
+        .search-results { flex: 1; min-height: 0; overflow-y: auto; padding: 0 18px 18px; }
+        .search-result {
+            width: 100%; display: flex; align-items: center; gap: 18px; border: 0;
+            border-radius: 18px; padding: 18px 22px; background: transparent;
+            color: var(--ruto-text); text-align: left; cursor: pointer;
+        }
+        .search-result:hover, .search-result:focus-visible { background: var(--ruto-hover); outline: none; }
+        .search-result-icon { flex: 0 0 auto; width: 28px; color: var(--ruto-muted); font-size: 21px; text-align: center; }
+        .search-result-copy { flex: 1; min-width: 0; }
+        .search-result-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+        .search-result-snippet {
+            display: -webkit-box; margin-top: 3px; overflow: hidden; color: var(--ruto-muted);
+            -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere;
+        }
+        .search-result-date { flex: 0 0 auto; color: var(--ruto-muted); font-size: 12px; white-space: nowrap; }
+        .search-empty { padding: 24px 18px; color: var(--ruto-muted); font-size: 15px; }
+        .ruto-messages { flex: 1; overflow-y: auto; padding: 26px 18px 150px; scroll-behavior: smooth; }
+        .welcome { max-width: 760px; margin: 11vh auto 0; text-align: center; }
+        .welcome h1 { font-size: clamp(25px, 4vw, 34px); margin: 0 0 8px; font-weight: 600; }
+        .welcome p { color: var(--ruto-muted); margin: 0 0 28px; }
+        .suggestions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; text-align: left; }
+        .suggestion {
+            background: transparent; border: 1px solid var(--ruto-border); border-radius: 13px;
+            color: var(--ruto-text); padding: 14px; cursor: pointer;
+        }
+        .suggestion:hover { background: var(--ruto-hover); }
+        .message { max-width: 800px; margin: 0 auto 18px; display: flex; gap: 10px; align-items: flex-start; }
+        .message-avatar {
+            width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center;
+            border-radius: 50%; background: var(--ruto-accent); color: white; font-weight: 700;
+        }
+        .message.user { justify-content: flex-end; }
+        .message.user .message-avatar { display: none; }
+        .message-body { min-width: 0; max-width: min(78%, 680px); }
+        .message.user .message-body {
+            padding: 11px 16px; border: 1px solid var(--ruto-border);
+            border-radius: 20px 20px 5px 20px; background: var(--ruto-hover);
+        }
+        .message.assistant .message-body { flex: 1; padding: 3px 0 0; }
+        .message-role { font-size: 12px; color: var(--ruto-muted); margin: 2px 0 5px; }
+        .message.user .message-role { display: none; }
+        .message-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+        .message-text strong { font-weight: 700; }
+        .message-text em { font-style: italic; }
+        .typing-cursor::after {
+            content: ""; display: inline-block; width: 2px; height: 1em; margin-left: 2px;
+            vertical-align: -2px; background: var(--ruto-text); animation: ruto-cursor .8s steps(2, start) infinite;
+        }
+        @keyframes ruto-cursor { to { visibility: hidden; } }
+        .typing-duration { margin-top: 7px; color: var(--ruto-muted); font-size: 11px; }
+        .message-actions { display: flex; gap: 6px; margin-top: 8px; }
+        .message-actions button { border: 0; border-radius: 6px; background: transparent; color: var(--ruto-muted); padding: 5px 8px; cursor: pointer; font-size: 12px; }
+        .message-actions button:hover { background: var(--ruto-hover); color: var(--ruto-text); }
+        .typing-indicator { display: inline-flex; align-items: center; gap: 9px; color: var(--ruto-muted); }
+        .typing-dots { display: inline-flex; align-items: center; gap: 4px; height: 18px; }
+        .typing-dots span {
+            width: 6px; height: 6px; border-radius: 50%; background: var(--ruto-muted);
+            animation: ruto-typing 1.2s infinite ease-in-out;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: .15s; }
+        .typing-dots span:nth-child(3) { animation-delay: .3s; }
+        @keyframes ruto-typing {
+            0%, 60%, 100% { opacity: .35; transform: translateY(0); }
+            30% { opacity: 1; transform: translateY(-5px); }
+        }
+        .composer-wrap {
+            position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 18px 20px;
+            background: linear-gradient(transparent, var(--ruto-bg) 24%);
+        }
+        .composer { max-width: 800px; margin: auto; border: 1px solid var(--ruto-border); border-radius: 24px; background: var(--ruto-panel); padding: 10px 11px 10px 17px; display: flex; gap: 10px; align-items: flex-end; box-shadow: 0 3px 14px rgba(0,0,0,.12); }
+        .composer textarea { flex: 1; min-width: 0; min-height: 28px; max-height: 180px; resize: none; border: 0; outline: 0; background: transparent; color: var(--ruto-text); padding: 5px 0; }
+        .composer textarea::placeholder { color: var(--ruto-muted); }
+        .send-button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--ruto-text); color: var(--ruto-bg); cursor: pointer; font-size: 19px; line-height: 1; }
+        .send-button:disabled { opacity: .45; cursor: wait; }
+        .disclaimer { color: var(--ruto-muted); text-align: center; font-size: 11px; margin: 9px auto 0; max-width: 800px; }
+        .notice { max-width: 800px; margin: 0 auto 16px; border: 1px solid #bd6b4a; color: var(--ruto-text); background: rgba(189,107,74,.12); padding: 10px 13px; border-radius: 10px; }
+        .settings-dialog { width: min(680px, calc(100vw - 28px)); max-height: 90dvh; border: 1px solid var(--ruto-border); border-radius: 16px; padding: 0; background: var(--ruto-bg); color: var(--ruto-text); }
+        .settings-dialog::backdrop { background: rgba(0,0,0,.65); backdrop-filter: blur(3px); }
+        .confirm-dialog { width: min(440px, calc(100vw - 28px)); border: 1px solid var(--ruto-border); border-radius: 16px; padding: 0; background: var(--ruto-panel); color: var(--ruto-text); box-shadow: 0 20px 70px rgba(0,0,0,.45); }
+        .confirm-dialog::backdrop { background: rgba(0,0,0,.68); backdrop-filter: blur(3px); }
+        .confirm-content { padding: 22px; }
+        .confirm-content h2 { margin: 0 0 10px; font-size: 18px; }
+        .confirm-content p { margin: 0; color: var(--ruto-muted); line-height: 1.6; overflow-wrap: anywhere; }
+        .confirm-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+        .confirm-actions button { min-width: 82px; }
+        .confirm-actions .danger-button { border-color: rgba(220,70,70,.55); color: #ef7777; }
+        .confirm-actions .danger-button:hover { background: rgba(220,70,70,.15); }
+        .settings-content { padding: 20px; overflow-y: auto; max-height: 90dvh; }
+        .settings-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .settings-top h2 { margin: 0; font-size: 20px; }
+        .settings-section { border-top: 1px solid var(--ruto-border); padding: 17px 0; }
+        .settings-section h3 { margin: 0 0 5px; font-size: 15px; }
+        .settings-help { margin: 0 0 11px; color: var(--ruto-muted); font-size: 12px; }
+        .settings-textarea, .settings-input { width: 100%; border: 1px solid var(--ruto-border); border-radius: 9px; padding: 10px; background: var(--ruto-panel); color: var(--ruto-text); outline: none; }
+        .settings-textarea { min-height: 125px; resize: vertical; }
+        .settings-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 9px; }
+        .small-button { border: 1px solid var(--ruto-border); border-radius: 8px; background: var(--ruto-panel); padding: 7px 10px; cursor: pointer; }
+        .small-button:hover { background: var(--ruto-hover); }
+        .skill-item { display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--ruto-border); padding: 9px 0; }
+        .skill-name { flex: 1; overflow-wrap: anywhere; }
+        .chat-memory-item { border: 1px solid var(--ruto-border); border-radius: 10px; padding: 11px 12px; margin-top: 9px; }
+        .chat-memory-title { font-weight: 600; margin-bottom: 5px; }
+        .chat-memory-summary { white-space: pre-wrap; color: var(--ruto-muted); font-size: 12px; overflow-wrap: anywhere; }
+        .chat-memory-date { margin-top: 6px; color: var(--ruto-muted); font-size: 11px; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #d07850; }
+        .status-dot.ready { background: #31b981; }
+        .hidden { display: none !important; }
+        @media (max-width: 700px) {
+            .ruto-sidebar { width: 56px; flex-basis: 56px; align-items: center; padding: 9px 5px; }
+            .ruto-brand { padding: 7px 0; }
+            .ruto-brand-label, .sidebar-label, .conversation-list, .conversation-heading, .sidebar-footer .button-label { display: none; }
+            .ruto-button { width: 42px; height: 42px; justify-content: center; padding: 0; }
+            .mobile-history-button { display: flex; }
+            .ruto-sidebar.mobile-history-open {
+                position: absolute; inset: 0 auto 0 0; z-index: 20; width: min(300px, 85vw);
+                flex-basis: min(300px, 85vw); align-items: stretch; padding: 9px 10px;
+                box-shadow: 12px 0 40px rgba(0,0,0,.45);
+            }
+            .ruto-sidebar.mobile-history-open .ruto-brand { padding: 7px 10px; }
+            .ruto-sidebar.mobile-history-open .ruto-brand-label,
+            .ruto-sidebar.mobile-history-open .sidebar-label,
+            .ruto-sidebar.mobile-history-open .conversation-list,
+            .ruto-sidebar.mobile-history-open .sidebar-footer .button-label { display: block; }
+            .ruto-sidebar.mobile-history-open .ruto-button { width: 100%; justify-content: flex-start; padding: 10px 12px; }
+            .ruto-sidebar.mobile-history-open .sidebar-footer { justify-items: stretch; }
+            .sidebar-footer { justify-items: center; width: 100%; }
+            .conversation-delete { opacity: 1; }
+            .ruto-header { padding: 0 12px; }
+            .ruto-header-meta { font-size: 10px; }
+            .ruto-messages { padding: 22px 12px 132px; }
+            .composer-wrap { padding: 11px 10px 14px; }
+            .suggestions { grid-template-columns: 1fr; }
+            .welcome { margin-top: 7vh; }
+            .message { gap: 9px; }
+            .message-body { max-width: 88%; }
+            .search-dialog { width: calc(100vw - 20px); max-height: 88dvh; border-radius: 18px; }
+            .search-modal { min-height: min(580px, 80dvh); }
+            .search-modal-header { gap: 6px; padding: 16px 15px 8px; }
+            .search-modal-input { font-size: 16px; }
+            .search-modal-actions { gap: 4px; }
+            .search-clear { padding: 7px; }
+            .search-tabs { padding: 8px 10px 12px; }
+            .search-results { padding: 0 8px 10px; }
+            .search-result { gap: 10px; padding: 15px 12px; }
+            .search-result-date { font-size: 11px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .typing-dots span { animation: none; opacity: .75; }
+            .typing-cursor::after { animation: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="ruto-app">
+    <aside class="ruto-sidebar">
+        <div class="ruto-brand"><span class="ruto-brand-mark">R</span><span class="ruto-brand-label">Ruto V1</span></div>
+        <button id="newChatButton" class="ruto-button primary" type="button" title="Percakapan baru"><span>＋</span><span class="button-label">Percakapan baru</span></button>
+        <button id="showHistoryButton" class="ruto-button mobile-history-button" type="button" title="Riwayat percakapan"><span>☰</span><span class="button-label">Riwayat</span></button>
+        <button id="openSearchButton" class="ruto-button" type="button" title="Cari percakapan" aria-label="Cari percakapan"><span aria-hidden="true">⌕</span><span class="button-label">Cari percakapan</span></button>
+        <div class="conversation-heading sidebar-label">Percakapan</div>
+        <nav id="conversationList" class="conversation-list" aria-label="Riwayat percakapan"></nav>
+        <div class="sidebar-footer">
+            <button id="settingsButton" class="ruto-button" type="button" title="Pengaturan Ruto"><span>⚙</span><span class="button-label">Memori &amp; Skills</span></button>
+            <a href="/space" class="ruto-button" style="text-decoration:none" title="Kembali ke Ultoid Space"><span>⌂</span><span class="button-label">Ultoid Space</span></a>
+        </div>
+    </aside>
+    <main class="ruto-main">
+        <header class="ruto-header">
+            <button id="deleteChatButton" class="icon-button hidden" type="button" title="Hapus percakapan" aria-label="Hapus percakapan">🗑</button>
+            <div id="chatTitle" class="ruto-header-title">Ruto V1</div>
+            <div id="providerStatus" class="ruto-header-meta"><span class="status-dot"></span>Memeriksa model…</div>
+        </header>
+        <section id="messages" class="ruto-messages" aria-live="polite">
+            <div id="welcome" class="welcome">
+                <h1>Ada yang bisa kubantu?</h1>
+                <p>Aku Ruto, asisten pribadimu. Percakapan tersimpan di Ultoid Space.</p>
+                <div class="suggestions">
+                    <button class="suggestion" type="button">Bantu aku menyusun rencana untuk minggu ini</button>
+                    <button class="suggestion" type="button">Jelaskan topik sulit dengan bahasa sederhana</button>
+                    <button class="suggestion" type="button">Bantu cari ide untuk proyek baru</button>
+                    <button class="suggestion" type="button">Rangkum informasi yang aku berikan</button>
+                </div>
+            </div>
+            <div id="notice" class="notice hidden" role="alert"></div>
+            <div id="messageList"></div>
+        </section>
+        <div class="composer-wrap">
+            <form id="composer" class="composer">
+                <textarea id="messageInput" rows="1" maxlength="12000" placeholder="Tanya apa saja ke Ruto" aria-label="Pesan untuk Ruto"></textarea>
+                <button id="sendButton" class="send-button" type="submit" aria-label="Kirim pesan">↑</button>
+            </form>
+            <p class="disclaimer">Ruto dapat keliru. Pesan, memori, skills, dan sumber GitHub publik yang diminta dikirim ke provider AI terpilih. Hindari menyimpan rahasia.</p>
+        </div>
+    </main>
+</div>
+
+<dialog id="searchDialog" class="search-dialog" aria-label="Cari percakapan">
+    <div class="search-modal">
+        <div class="search-modal-header">
+            <input id="searchModalInput" class="search-modal-input" type="search" maxlength="200" placeholder="Cari percakapan" aria-label="Cari percakapan">
+            <div class="search-modal-actions">
+                <button id="clearSearchButton" class="search-clear" type="button">Bersihkan</button>
+                <span class="search-divider" aria-hidden="true"></span>
+                <button id="closeSearchButton" class="icon-button" type="button" aria-label="Tutup pencarian">✕</button>
+            </div>
+        </div>
+        <div class="search-tabs" role="tablist" aria-label="Jenis hasil">
+            <button class="search-tab active" type="button" role="tab" aria-selected="true">Percakapan</button>
+        </div>
+        <div id="searchResults" class="search-results" aria-live="polite">
+            <div class="search-empty">Cari berdasarkan judul atau isi pesan.</div>
+        </div>
+    </div>
+</dialog>
+
+<dialog id="settingsDialog" class="settings-dialog">
+    <div class="settings-content">
+        <div class="settings-top"><h2>Pengaturan Ruto</h2><button id="closeSettingsButton" class="icon-button" type="button" aria-label="Tutup">✕</button></div>
+        <section class="settings-section">
+            <h3>Model provider</h3>
+            <p class="settings-help">Provider Gemini menyediakan pilihan Gemma di sini. Untuk provider lain, model diatur melalui konfigurasi `.env`.</p>
+            <div class="settings-controls">
+                <select id="geminiModelSelect" class="settings-input" aria-label="Model Gemini" style="max-width:340px"></select>
+                <button id="saveGeminiModelButton" class="small-button" type="button">Simpan model</button>
+            </div>
+            <p id="geminiModelStatus" class="settings-help" aria-live="polite" style="margin-top:8px"></p>
+        </section>
+        <section class="settings-section">
+            <h3>Penggunaan AI</h3>
+            <p class="settings-help">Statistik ini menghitung semua request Ruto, termasuk request tambahan untuk memperbarui ringkasan chat memory. Isi batas RPD model dari dashboard provider untuk melihat estimasi lokal; angka ini bukan pembacaan kuota akun provider.</p>
+            <div id="usageSummary" class="settings-help usage-summary" aria-live="polite">Memuat statistik pemakaian…</div>
+            <label class="settings-help" for="dailyRequestLimit">Batas request per hari (RPD) untuk model ini. Isi 0 jika belum tahu.</label>
+            <div class="settings-controls">
+                <input id="dailyRequestLimit" class="settings-input" type="number" min="0" max="1000000" step="1" value="0" style="max-width:190px">
+                <button id="saveUsageLimitButton" class="small-button" type="button">Simpan batas</button>
+                <a class="small-button" href="https://aistudio.google.com/rate-limit?timeRange=last-28-days" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Lihat limit AI Studio</a>
+            </div>
+            <p id="usageLimitStatus" class="settings-help" aria-live="polite" style="margin-top:8px"></p>
+        </section>
+        <section class="settings-section">
+            <h3>Core memory</h3>
+            <p class="settings-help">Memori dasar tetap dan bisa kamu edit, termasuk panduan Nusvanir dan rujukan kanonis: <code>https://github.com/ultoid/nusvanir</code>. Disimpan sebagai <code>data/ruto/core_memory.md</code>.</p>
+            <textarea id="memoryInput" class="settings-textarea" maxlength="50000" placeholder="Preferensi, fakta, atau konteks dasar yang ingin Ruto ingat…"></textarea>
+            <div class="settings-controls"><button id="saveMemoryButton" class="small-button" type="button">Simpan core memory</button><span id="memoryStatus" class="settings-help"></span></div>
+        </section>
+        <section class="settings-section">
+            <h3>Chat memory</h3>
+            <p class="settings-help">Ruto memperbarui ringkasan tiap percakapan setelah setiap balasan menggunakan satu request AI tambahan. Ringkasan relevan dipakai sebagai konteks di chat berikutnya dan tetap tersimpan saat riwayat chat dihapus. Ini memori berbasis pencarian konteks, bukan pelatihan ulang model.</p>
+            <div id="chatMemoryList"></div>
+        </section>
+        <section class="settings-section">
+            <h3>Skills</h3>
+            <p class="settings-help">Setiap skill disimpan sebagai file Markdown terpisah. Kamu bisa menambah manual, mengimpor file .md, atau menyimpan jawaban chat sebagai skill.</p>
+            <div id="skillList"></div>
+            <div class="settings-controls">
+                <button id="addSkillButton" class="small-button" type="button">Tambah skill</button>
+                <label class="small-button" for="skillFileInput" style="cursor:pointer">Impor .md</label>
+                <input id="skillFileInput" class="hidden" type="file" accept=".md,text/markdown">
+            </div>
+            <div id="skillEditor" class="hidden" style="margin-top:14px">
+                <input id="skillTitle" class="settings-input" maxlength="100" placeholder="Nama skill">
+                <textarea id="skillContent" class="settings-textarea" maxlength="50000" placeholder="Instruksi dan pengetahuan skill…" style="margin-top:8px"></textarea>
+                <div class="settings-controls"><button id="saveSkillButton" class="small-button" type="button">Simpan skill</button><button id="cancelSkillButton" class="small-button" type="button">Batal</button><span id="skillStatus" class="settings-help"></span></div>
+            </div>
+        </section>
+    </div>
+</dialog>
+
+<dialog id="confirmDialog" class="confirm-dialog">
+    <div class="confirm-content">
+        <h2 id="confirmTitle"></h2>
+        <p id="confirmMessage"></p>
+        <form method="dialog" class="confirm-actions">
+            <button class="small-button" type="submit" value="cancel">Batal</button>
+            <button id="confirmActionButton" class="small-button danger-button" type="submit" value="confirm">Hapus</button>
+        </form>
+    </div>
+</dialog>
+
+<script>
+    const csrfToken = document.querySelector('meta[name="ruto-csrf-token"]').content;
+    const messagesElement = document.getElementById('messages');
+    const messageList = document.getElementById('messageList');
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    const notice = document.getElementById('notice');
+    let currentConversationId = null;
+    let editingSkillFilename = null;
+    let conversationSearchTimer = null;
+    let conversationListRequestId = 0;
+    let searchRequestId = 0;
+
+    async function api(path, options = {}) {
+        const headers = new Headers(options.headers || {});
+        if (options.method && options.method !== 'GET') headers.set('X-CSRF-Token', csrfToken);
+        if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+        const response = await fetch(path, {...options, headers});
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Permintaan gagal (${response.status}).`);
+        return result;
+    }
+
+    function showNotice(message) {
+        notice.textContent = message;
+        notice.classList.remove('hidden');
+    }
+
+    function clearNotice() {
+        notice.textContent = '';
+        notice.classList.add('hidden');
+    }
+
+    function addMessage(role, content, withActions = false, typingDurationMs = null) {
+        document.getElementById('welcome').classList.add('hidden');
+        const item = document.createElement('article');
+        item.className = `message ${role}`;
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = role === 'assistant' ? 'R' : 'K';
+        const body = document.createElement('div');
+        body.className = 'message-body';
+        const label = document.createElement('div');
+        label.className = 'message-role';
+        label.textContent = role === 'assistant' ? 'Ruto' : 'Kamu';
+        const text = document.createElement('div');
+        text.className = 'message-text';
+        if (role === 'assistant') {
+            renderAssistantMarkdown(text, tokenizeAssistantMarkdown(content));
+        } else {
+            text.textContent = content;
+        }
+        body.append(label, text);
+        if (role === 'assistant' && withActions) {
+            const actions = document.createElement('div');
+            actions.className = 'message-actions';
+            const save = document.createElement('button');
+            save.type = 'button';
+            save.textContent = 'Simpan sebagai skill';
+            save.addEventListener('click', () => saveAnswerAsSkill(text.textContent));
+            actions.append(save);
+            body.append(actions);
+        }
+        if (role === 'assistant' && typingDurationMs !== null) {
+            const duration = document.createElement('div');
+            duration.className = 'typing-duration';
+            duration.textContent = `Diketik dalam ${formatTypingDuration(typingDurationMs)}`;
+            body.append(duration);
+        }
+        item.append(avatar, body);
+        messageList.append(item);
+        messagesElement.scrollTop = messagesElement.scrollHeight;
+        return text;
+    }
+
+    function formatTypingDuration(durationMs) {
+        const seconds = durationMs / 1000;
+        if (seconds < 60) return `${seconds.toFixed(1).replace('.', ',')} detik`;
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = (seconds % 60).toFixed(0);
+        return `${minutes} menit ${remainingSeconds} detik`;
+    }
+
+    function tokenizeAssistantMarkdown(content) {
+        const segments = [];
+        const emphasisPattern = /(\*\*|__)(?=\S)(.+?)(?<=\S)\1|(\*|_)(?=\S)(.+?)(?<=\S)\3/g;
+        let lastIndex = 0;
+        for (const match of content.matchAll(emphasisPattern)) {
+            if (match.index > lastIndex) {
+                segments.push({text: content.slice(lastIndex, match.index), tag: null});
+            }
+            segments.push({
+                text: match[2] || match[4],
+                tag: match[1] ? 'strong' : 'em'
+            });
+            lastIndex = match.index + match[0].length;
+        }
+        if (lastIndex < content.length) {
+            segments.push({text: content.slice(lastIndex), tag: null});
+        }
+        return segments.map(segment => ({...segment, characters: Array.from(segment.text)}));
+    }
+
+    function renderAssistantMarkdown(element, segments, visibleCharacters = Infinity) {
+        const fragment = document.createDocumentFragment();
+        let remaining = visibleCharacters;
+        for (const segment of segments) {
+            if (remaining <= 0) break;
+            const visibleText = segment.characters.slice(0, remaining).join('');
+            if (visibleText) {
+                if (segment.tag) {
+                    const formatted = document.createElement(segment.tag);
+                    formatted.textContent = visibleText;
+                    fragment.append(formatted);
+                } else {
+                    fragment.append(document.createTextNode(visibleText));
+                }
+                remaining -= segment.characters.length;
+            }
+        }
+        element.replaceChildren(fragment);
+    }
+
+    async function typeAssistantReply(content) {
+        const text = addMessage('assistant', '', true);
+        text.classList.add('typing-cursor');
+        const segments = tokenizeAssistantMarkdown(content);
+        const characterCount = segments.reduce((total, segment) => total + segment.characters.length, 0);
+        const startTime = performance.now();
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const charactersPerTick = Math.max(1, Math.ceil(characterCount / 240));
+        const delay = reducedMotion ? 0 : 20;
+
+        for (let index = charactersPerTick; index < characterCount + charactersPerTick; index += charactersPerTick) {
+            renderAssistantMarkdown(text, segments, Math.min(index, characterCount));
+            messagesElement.scrollTop = messagesElement.scrollHeight;
+            if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        text.classList.remove('typing-cursor');
+        const typingDurationMs = performance.now() - startTime;
+        const duration = document.createElement('div');
+        duration.className = 'typing-duration';
+        duration.textContent = `Diketik dalam ${formatTypingDuration(typingDurationMs)}`;
+        text.parentElement.append(duration);
+    }
+
+    async function refreshConversations() {
+        const requestId = ++conversationListRequestId;
+        const conversations = await api('/api/ruto/conversations');
+        if (requestId !== conversationListRequestId) return;
+        const list = document.getElementById('conversationList');
+        list.replaceChildren();
+        if (!conversations.length) {
+            const empty = document.createElement('div');
+            empty.className = 'conversation-empty';
+            empty.textContent = 'Belum ada percakapan.';
+            list.append(empty);
+            return;
+        }
+        for (const item of conversations) {
+            const row = document.createElement('div');
+            row.className = 'conversation-row';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `conversation-button${item.id === currentConversationId ? ' active' : ''}`;
+            button.title = item.title;
+            const title = document.createElement('span');
+            title.textContent = item.title;
+            button.append(title);
+            button.addEventListener('click', () => openConversation(item.id));
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'conversation-delete';
+            remove.textContent = '×';
+            remove.title = `Hapus chat: ${item.title}`;
+            remove.setAttribute('aria-label', `Hapus chat: ${item.title}`);
+            remove.addEventListener('click', event => {
+                event.stopPropagation();
+                deleteConversation(item.id, item.title);
+            });
+            row.append(button, remove);
+            list.append(row);
+        }
+    }
+
+    function formatSearchDate(value) {
+        if (!value) return '';
+        const date = new Date(`${value.replace(' ', 'T')}Z`);
+        if (Number.isNaN(date.getTime())) return '';
+        return new Intl.DateTimeFormat('id-ID', {day: 'numeric', month: 'short'}).format(date);
+    }
+
+    function searchSnippet(conversation, keyword) {
+        const source = conversation.match_message || conversation.last_message || '';
+        if (!source) return 'Belum ada pesan dalam percakapan ini.';
+        const matchIndex = keyword ? source.toLocaleLowerCase().indexOf(keyword.toLocaleLowerCase()) : -1;
+        if (matchIndex < 0 || source.length <= 180) return source.slice(0, 180);
+        const start = Math.max(0, matchIndex - 70);
+        const end = Math.min(source.length, matchIndex + keyword.length + 90);
+        return `${start > 0 ? '…' : ''}${source.slice(start, end)}${end < source.length ? '…' : ''}`;
+    }
+
+    async function searchConversations() {
+        const keyword = document.getElementById('searchModalInput').value.trim();
+        const results = document.getElementById('searchResults');
+        const requestId = ++searchRequestId;
+        if (!keyword) {
+            results.replaceChildren();
+            const empty = document.createElement('div');
+            empty.className = 'search-empty';
+            empty.textContent = 'Cari berdasarkan judul atau isi pesan.';
+            results.append(empty);
+            return;
+        }
+
+        try {
+            const conversations = await api(`/api/ruto/conversations?q=${encodeURIComponent(keyword)}`);
+            if (requestId !== searchRequestId || !document.getElementById('searchDialog').open) return;
+            results.replaceChildren();
+            if (!conversations.length) {
+                const empty = document.createElement('div');
+                empty.className = 'search-empty';
+                empty.textContent = 'Tidak ada percakapan yang cocok.';
+                results.append(empty);
+                return;
+            }
+            for (const conversation of conversations) {
+                const result = document.createElement('button');
+                result.type = 'button';
+                result.className = 'search-result';
+                const icon = document.createElement('span');
+                icon.className = 'search-result-icon';
+                icon.setAttribute('aria-hidden', 'true');
+                icon.textContent = '▢';
+                const copy = document.createElement('span');
+                copy.className = 'search-result-copy';
+                const title = document.createElement('span');
+                title.className = 'search-result-title';
+                title.textContent = conversation.title;
+                const snippet = document.createElement('span');
+                snippet.className = 'search-result-snippet';
+                snippet.textContent = searchSnippet(conversation, keyword);
+                copy.append(title, snippet);
+                const date = document.createElement('span');
+                date.className = 'search-result-date';
+                date.textContent = formatSearchDate(conversation.updated_at);
+                result.append(icon, copy, date);
+                result.addEventListener('click', async () => {
+                    document.getElementById('searchDialog').close();
+                    await openConversation(conversation.id);
+                });
+                results.append(result);
+            }
+        } catch (error) {
+            if (requestId !== searchRequestId) return;
+            results.replaceChildren();
+            const failure = document.createElement('div');
+            failure.className = 'search-empty';
+            failure.textContent = error.message;
+            results.append(failure);
+        }
+    }
+
+    function openSearch() {
+        const dialog = document.getElementById('searchDialog');
+        if (!dialog.open) dialog.showModal();
+        document.getElementById('searchModalInput').focus();
+    }
+
+    function confirmAction(title, message, actionLabel = 'Hapus') {
+        const dialog = document.getElementById('confirmDialog');
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmMessage').textContent = message;
+        document.getElementById('confirmActionButton').textContent = actionLabel;
+        return new Promise(resolve => {
+            dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), {once: true});
+            dialog.showModal();
+        });
+    }
+
+    async function deleteConversation(id, title) {
+        const confirmed = await confirmAction(
+            'Hapus percakapan?',
+            `Riwayat chat "${title}" akan dihapus. Core memory, ringkasan chat memory, dan skills Ruto tetap tersimpan.`
+        );
+        if (!confirmed) return;
+        try {
+            await api(`/api/ruto/conversations/${encodeURIComponent(id)}`, {method: 'DELETE'});
+            if (currentConversationId === id) {
+                currentConversationId = null;
+                messageList.replaceChildren();
+                document.getElementById('welcome').classList.remove('hidden');
+                document.getElementById('deleteChatButton').classList.add('hidden');
+                document.getElementById('chatTitle').textContent = 'Ruto V1';
+            }
+            await refreshConversations();
+        } catch (error) {
+            showNotice(error.message);
+        }
+    }
+
+    async function openConversation(id) {
+        clearNotice();
+        try {
+            const data = await api(`/api/ruto/conversations/${encodeURIComponent(id)}`);
+            currentConversationId = data.id;
+            messageList.replaceChildren();
+            document.getElementById('welcome').classList.toggle('hidden', data.messages.length > 0);
+            for (const message of data.messages) addMessage(message.role, message.content, message.role === 'assistant');
+            document.getElementById('chatTitle').textContent = data.title;
+            document.getElementById('deleteChatButton').classList.remove('hidden');
+            await refreshConversations();
+            document.querySelector('.ruto-sidebar').classList.remove('mobile-history-open');
+        } catch (error) {
+            showNotice(error.message);
+        }
+    }
+
+    async function createConversation() {
+        clearNotice();
+        try {
+            const conversation = await api('/api/ruto/conversations', {method: 'POST', body: JSON.stringify({})});
+            currentConversationId = conversation.id;
+            messageList.replaceChildren();
+            document.getElementById('welcome').classList.remove('hidden');
+            document.getElementById('deleteChatButton').classList.remove('hidden');
+            await refreshConversations();
+            messageInput.focus();
+            document.querySelector('.ruto-sidebar').classList.remove('mobile-history-open');
+        } catch (error) {
+            showNotice(error.message);
+        }
+    }
+
+    async function sendMessage(text) {
+        if (sendButton.disabled || !text.trim()) return;
+        clearNotice();
+        sendButton.disabled = true;
+        messageInput.disabled = true;
+        try {
+            if (!currentConversationId) {
+                const conversation = await api('/api/ruto/conversations', {method: 'POST', body: JSON.stringify({})});
+                currentConversationId = conversation.id;
+                document.getElementById('deleteChatButton').classList.remove('hidden');
+            }
+            addMessage('user', text.trim());
+            const pending = document.createElement('article');
+            pending.className = 'message assistant';
+            pending.dataset.pending = 'true';
+            const pendingAvatar = document.createElement('div');
+            pendingAvatar.className = 'message-avatar';
+            pendingAvatar.textContent = 'R';
+            const pendingBody = document.createElement('div');
+            pendingBody.className = 'message-body';
+            const pendingRole = document.createElement('div');
+            pendingRole.className = 'message-role';
+            pendingRole.textContent = 'Ruto';
+            const pendingText = document.createElement('div');
+            pendingText.className = 'message-text typing-indicator';
+            const thinkingLabel = document.createElement('span');
+            thinkingLabel.textContent = 'Ruto sedang berpikir';
+            const dots = document.createElement('span');
+            dots.className = 'typing-dots';
+            dots.setAttribute('aria-hidden', 'true');
+            for (let index = 0; index < 3; index++) dots.append(document.createElement('span'));
+            pendingText.append(thinkingLabel, dots);
+            pendingBody.append(pendingRole, pendingText);
+            pending.append(pendingAvatar, pendingBody);
+            messageList.append(pending);
+            messagesElement.scrollTop = messagesElement.scrollHeight;
+            const result = await api(`/api/ruto/conversations/${encodeURIComponent(currentConversationId)}/messages`, {
+                method: 'POST',
+                body: JSON.stringify({message: text.trim()})
+            });
+            pending.remove();
+            await typeAssistantReply(result.assistant);
+            document.getElementById('chatTitle').textContent = result.title;
+            if (result.memory_warning) showNotice(result.memory_warning);
+            await refreshConversations();
+        } catch (error) {
+            messageInput.value = text;
+            showNotice(error.message);
+            const pendingMessage = messageList.querySelector('[data-pending="true"]');
+            if (pendingMessage) pendingMessage.remove();
+        } finally {
+            sendButton.disabled = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+        }
+    }
+
+    async function loadStatus() {
+        try {
+            const status = await api('/api/ruto/status');
+            const target = document.getElementById('providerStatus');
+            const dot = document.createElement('span');
+            dot.className = `status-dot${status.ready ? ' ready' : ''}`;
+            target.replaceChildren(dot, document.createTextNode(
+                status.ready ? `${status.provider} · ${status.model}` : 'Provider belum dikonfigurasi'
+            ));
+        } catch (error) {
+            document.getElementById('providerStatus').textContent = 'Status model tidak tersedia';
+        }
+    }
+
+    async function openSettings() {
+        document.getElementById('settingsDialog').showModal();
+        try {
+            const [data, usage, model] = await Promise.all([
+                api('/api/ruto/knowledge'),
+                api('/api/ruto/usage'),
+                api('/api/ruto/model')
+            ]);
+            document.getElementById('memoryInput').value = data.core_memory;
+            renderSkills(data.skills);
+            renderChatMemories(data.chat_memories);
+            renderUsage(usage);
+            renderGeminiModels(model);
+        } catch (error) {
+            showNotice(error.message);
+        }
+    }
+
+    function renderGeminiModels(modelSettings) {
+        const select = document.getElementById('geminiModelSelect');
+        const saveButton = document.getElementById('saveGeminiModelButton');
+        const status = document.getElementById('geminiModelStatus');
+        select.replaceChildren();
+        if (!modelSettings.models.length) {
+            const option = document.createElement('option');
+            option.textContent = `Model dikelola oleh provider: ${modelSettings.model}`;
+            option.value = '';
+            select.append(option);
+            select.disabled = true;
+            saveButton.disabled = true;
+            status.textContent = 'Pemilihan Gemma hanya tersedia saat menggunakan provider Gemini.';
+            return;
+        }
+        for (const model of modelSettings.models) {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            select.append(option);
+        }
+        select.value = modelSettings.model;
+        select.disabled = false;
+        saveButton.disabled = false;
+        status.textContent = `Model aktif: ${select.selectedOptions[0]?.textContent || modelSettings.model}`;
+    }
+
+    function renderChatMemories(memories) {
+        const list = document.getElementById('chatMemoryList');
+        list.replaceChildren();
+        if (!memories.length) {
+            const empty = document.createElement('p');
+            empty.className = 'settings-help';
+            empty.textContent = 'Belum ada ringkasan chat. Ringkasan akan dibuat setelah balasan Ruto berikutnya.';
+            list.append(empty);
+            return;
+        }
+        for (const memory of memories) {
+            const item = document.createElement('article');
+            item.className = 'chat-memory-item';
+            const title = document.createElement('div');
+            title.className = 'chat-memory-title';
+            title.textContent = memory.title;
+            const summary = document.createElement('div');
+            summary.className = 'chat-memory-summary';
+            summary.textContent = memory.summary;
+            const updated = document.createElement('div');
+            updated.className = 'chat-memory-date';
+            updated.textContent = `Diperbarui ${formatSearchDate(memory.updated_at)}`;
+            item.append(title, summary, updated);
+            list.append(item);
+        }
+    }
+
+    function renderUsage(usage) {
+        document.getElementById('dailyRequestLimit').value = usage.daily_limit;
+        const today = usage.today;
+        const lifetime = usage.lifetime;
+        const remaining = usage.limit_configured
+            ? ` · estimasi sisa RPD: ${usage.remaining_estimate.toLocaleString()}`
+            : ' · masukkan batas RPD untuk estimasi sisa';
+        document.getElementById('usageSummary').textContent =
+            `${usage.provider} · ${usage.model}\n` +
+            `Hari ini (reset tengah malam Pacific): ${today.requests.toLocaleString()} request ` +
+            `(${today.successful.toLocaleString()} berhasil, ${today.failed.toLocaleString()} gagal)` +
+            `${remaining}\n` +
+            `Token hari ini: ${today.input_tokens.toLocaleString()} masuk · ${today.output_tokens.toLocaleString()} keluar · ${today.total_tokens.toLocaleString()} total\n` +
+            `Sejak pencatatan: ${lifetime.requests.toLocaleString()} request · ${lifetime.total_tokens.toLocaleString()} token total.`;
+    }
+
+    function renderSkills(skills) {
+        const list = document.getElementById('skillList');
+        list.replaceChildren();
+        if (!skills.length) {
+            const empty = document.createElement('p');
+            empty.className = 'settings-help';
+            empty.textContent = 'Belum ada skill. Tambahkan skill atau impor file Markdown.';
+            list.append(empty);
+            return;
+        }
+        for (const skill of skills) {
+            const row = document.createElement('div');
+            row.className = 'skill-item';
+            const name = document.createElement('span');
+            name.className = 'skill-name';
+            name.textContent = skill.filename;
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.className = 'small-button';
+            edit.textContent = 'Ubah';
+            edit.addEventListener('click', () => {
+                editingSkillFilename = skill.filename;
+                const lines = skill.content.split('\n');
+                document.getElementById('skillTitle').value = lines[0].startsWith('# ') ? lines.shift().slice(2).trim() : skill.filename.replace(/\.md$/i, '');
+                document.getElementById('skillContent').value = lines.join('\n').trim();
+                document.getElementById('skillEditor').classList.remove('hidden');
+            });
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'small-button';
+            remove.textContent = 'Hapus';
+            remove.addEventListener('click', async () => {
+                if (!await confirmAction('Hapus skill?', `File skill "${skill.filename}" akan dihapus.`)) return;
+                try {
+                    await api(`/api/ruto/knowledge/skills/${encodeURIComponent(skill.filename)}`, {method: 'DELETE'});
+                    const updated = await api('/api/ruto/knowledge');
+                    renderSkills(updated.skills);
+                } catch (error) {
+                    document.getElementById('skillStatus').textContent = error.message;
+                }
+            });
+            row.append(name, edit, remove);
+            list.append(row);
+        }
+    }
+
+    async function saveAnswerAsSkill(answer) {
+        const title = prompt('Nama skill yang ingin disimpan:');
+        if (!title || !title.trim()) return;
+        try {
+            await api('/api/ruto/knowledge/skills', {
+                method: 'POST',
+                body: JSON.stringify({title: title.trim(), content: answer})
+            });
+            document.getElementById('settingsDialog').showModal();
+            const data = await api('/api/ruto/knowledge');
+            document.getElementById('memoryInput').value = data.core_memory;
+            renderSkills(data.skills);
+            renderChatMemories(data.chat_memories);
+        } catch (error) {
+            showNotice(error.message);
+        }
+    }
+
+    document.getElementById('composer').addEventListener('submit', event => {
+        event.preventDefault();
+        const value = messageInput.value;
+        if (!value.trim()) return;
+        messageInput.value = '';
+        messageInput.style.height = 'auto';
+        sendMessage(value);
+    });
+    messageInput.addEventListener('input', () => {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = `${Math.min(messageInput.scrollHeight, 180)}px`;
+    });
+    messageInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            document.getElementById('composer').requestSubmit();
+        }
+    });
+    document.querySelectorAll('.suggestion').forEach(button => button.addEventListener('click', () => {
+        messageInput.value = button.textContent;
+        document.getElementById('composer').requestSubmit();
+    }));
+    document.getElementById('newChatButton').addEventListener('click', createConversation);
+    document.getElementById('openSearchButton').addEventListener('click', openSearch);
+    document.getElementById('closeSearchButton').addEventListener('click', () => {
+        document.getElementById('searchDialog').close();
+        document.getElementById('openSearchButton').focus();
+    });
+    document.getElementById('searchDialog').addEventListener('click', event => {
+        if (event.target === event.currentTarget) event.currentTarget.close();
+    });
+    document.getElementById('searchModalInput').addEventListener('input', () => {
+        clearTimeout(conversationSearchTimer);
+        conversationSearchTimer = setTimeout(searchConversations, 250);
+    });
+    document.getElementById('clearSearchButton').addEventListener('click', () => {
+        document.getElementById('searchModalInput').value = '';
+        searchConversations();
+        document.getElementById('searchModalInput').focus();
+    });
+    document.getElementById('showHistoryButton').addEventListener('click', () => {
+        document.querySelector('.ruto-sidebar').classList.toggle('mobile-history-open');
+    });
+    document.getElementById('settingsButton').addEventListener('click', openSettings);
+    document.getElementById('closeSettingsButton').addEventListener('click', () => document.getElementById('settingsDialog').close());
+    document.getElementById('saveGeminiModelButton').addEventListener('click', async () => {
+        const status = document.getElementById('geminiModelStatus');
+        const select = document.getElementById('geminiModelSelect');
+        try {
+            const modelSettings = await api('/api/ruto/model', {
+                method: 'PUT',
+                body: JSON.stringify({model: select.value})
+            });
+            renderGeminiModels(modelSettings);
+            await loadStatus();
+            renderUsage(await api('/api/ruto/usage'));
+            status.textContent = `Model aktif: ${select.selectedOptions[0]?.textContent || modelSettings.model}`;
+        } catch (error) {
+            status.textContent = error.message;
+        }
+    });
+    document.getElementById('saveUsageLimitButton').addEventListener('click', async () => {
+        const status = document.getElementById('usageLimitStatus');
+        const input = document.getElementById('dailyRequestLimit');
+        const dailyLimit = Number(input.value);
+        if (!Number.isInteger(dailyLimit) || dailyLimit < 0 || dailyLimit > 1000000) {
+            status.textContent = 'Masukkan bilangan bulat antara 0 dan 1.000.000.';
+            return;
+        }
+        try {
+            const usage = await api('/api/ruto/usage', {
+                method: 'PUT',
+                body: JSON.stringify({daily_limit: dailyLimit})
+            });
+            renderUsage(usage);
+            status.textContent = dailyLimit ? 'Batas RPD tersimpan.' : 'Estimasi batas dinonaktifkan.';
+        } catch (error) {
+            status.textContent = error.message;
+        }
+    });
+    document.getElementById('saveMemoryButton').addEventListener('click', async () => {
+        const status = document.getElementById('memoryStatus');
+        try {
+            await api('/api/ruto/knowledge/core-memory', {method: 'PUT', body: JSON.stringify({content: document.getElementById('memoryInput').value})});
+            status.textContent = 'Core memory tersimpan.';
+        } catch (error) {
+            status.textContent = error.message;
+        }
+    });
+    document.getElementById('addSkillButton').addEventListener('click', () => {
+        editingSkillFilename = null;
+        document.getElementById('skillTitle').value = '';
+        document.getElementById('skillContent').value = '';
+        document.getElementById('skillStatus').textContent = '';
+        document.getElementById('skillEditor').classList.remove('hidden');
+        document.getElementById('skillTitle').focus();
+    });
+    document.getElementById('cancelSkillButton').addEventListener('click', () => document.getElementById('skillEditor').classList.add('hidden'));
+    document.getElementById('saveSkillButton').addEventListener('click', async () => {
+        const status = document.getElementById('skillStatus');
+        const title = document.getElementById('skillTitle').value;
+        const content = document.getElementById('skillContent').value;
+        try {
+            const path = editingSkillFilename
+                ? `/api/ruto/knowledge/skills/${encodeURIComponent(editingSkillFilename)}`
+                : '/api/ruto/knowledge/skills';
+            await api(path, {method: editingSkillFilename ? 'PUT' : 'POST', body: JSON.stringify({title, content})});
+            document.getElementById('skillEditor').classList.add('hidden');
+            const data = await api('/api/ruto/knowledge');
+            renderSkills(data.skills);
+        } catch (error) {
+            status.textContent = error.message;
+        }
+    });
+    document.getElementById('skillFileInput').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const form = new FormData();
+        form.append('file', file);
+        try {
+            await api('/api/ruto/knowledge/skills', {method: 'POST', body: form});
+            const data = await api('/api/ruto/knowledge');
+            renderSkills(data.skills);
+        } catch (error) {
+            document.getElementById('skillStatus').textContent = error.message;
+        } finally {
+            event.target.value = '';
+        }
+    });
+    document.getElementById('deleteChatButton').addEventListener('click', () => {
+        if (!currentConversationId) return;
+        const title = document.getElementById('chatTitle').textContent;
+        deleteConversation(currentConversationId, title);
+    });
+
+    (async function initialize() {
+        try {
+            await loadStatus();
+            await refreshConversations();
+            const existing = await api('/api/ruto/conversations');
+            if (existing.length) await openConversation(existing[0].id);
+        } catch (error) {
+            showNotice(error.message);
+        }
+    })();
+</script>
+</body>
+</html>

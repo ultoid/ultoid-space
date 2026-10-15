@@ -38,7 +38,7 @@ SHORTLINK_DOMAIN = 'https://anugerahgmb.com/s/'
 
 RESERVED_ROUTES = {
     'login', 'logout', 'dashboard', 'space', 'api', 'static', 'templates',
-    'translate', 'downloader', 'wallpaper', 'qrcode', 'portfolio', 'task', 'notes', 'streaming',
+    'translate', 'downloader', 'wallpaper', 'qrcode', 'portfolio', 'task', 'notes', 'streaming', 'ruto',
     'emulator', 'shortlink'
 }
 

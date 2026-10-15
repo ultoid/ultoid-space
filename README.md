@@ -22,6 +22,7 @@ Dirancang untuk membuat proses terjemahan novel, buku, atau dokumen panjang menj
 - 📝 **Notes with Flowchart** — Buat catatan visual dan diagram alur untuk ide, tugas, atau proyek.
 - 📅 **Calendar Task** — Atur daftar tugas dan jadwal Anda dengan kalender terintegrasi.
 - ⬇️ **Media Downloader** — Unduh video dan foto publik dari YouTube, Instagram, dan TikTok. Playlist YouTube ditandai dengan jelas dan hanya item yang dipilih yang akan diunduh.
+- 💬 **Ruto V1 AI** — Asisten chat pribadi dengan riwayat percakapan persisten serta memori dan skills Markdown yang dapat dikelola.
 
 > **💡 Catatan Tambahan:**
 > - **Konfigurasi Aman**: Gunakan `.env` untuk menyimpan API key secara aman dan rahasia.
@@ -69,9 +70,35 @@ Buat file bernama `.env` di direktori utama, lalu tambahkan API key Anda:
 ```env
 ULTOID_ADMIN_USERNAME=admin
 ULTOID_ADMIN_PASSWORD=password_admin_kuat
-GEMINI_API_KEY=api_gemini_anda_di_sini
+GEMINI_API_KEY=api_gemini_anda
+RUTO_PROVIDER=gemini
+RUTO_MODEL=gemma-4-31b-it
 ```
 `ULTOID_ADMIN_PASSWORD` wajib diisi saat pertama kali menjalankan aplikasi jika `data/credentials.txt` belum tersedia. Setelah kredensial dibuat, password tersimpan sebagai hash di file tersebut.
+
+### Ruto V1 AI
+Ruto V1 saat ini memakai Gemini API melalui `GEMINI_API_KEY`, dengan `gemma-4-31b-it` sebagai model awal. Pilihan Gemma dapat diganti di Pengaturan Ruto. Ketersediaan model dan limit mengikuti project serta akun Google AI Studio; statistik Ruto menghitung request yang dikirim oleh aplikasi ini, termasuk satu request tambahan untuk memperbarui chat memory. Riwayat chat dan chat memory disimpan di `data/ruto/ruto.sqlite3`; core memory disimpan di `data/ruto/core_memory.md`; setiap skill disimpan sebagai file Markdown terpisah di `data/ruto/skills/`. Saat upgrade, `data/ruto/memory.md` lama otomatis dipindahkan menjadi `core_memory.md`. Data tersebut bersifat lokal dan tidak disajikan sebagai file statis.
+
+Core memory menyimpan konteks dasar yang tetap. Setelah setiap balasan, Ruto mengirim satu request AI tambahan untuk memperbarui ringkasan percakapan terkait. Ringkasan chat disimpan terpisah dari riwayat, dipakai sebagai konteks relevan pada percakapan berikutnya, dan tetap ada setelah chat dihapus. Ringkasan berusaha menghilangkan kredensial, tetapi hindari mengirim rahasia. Statistik penggunaan menghitung request ringkasan ini juga. Mekanisme ini adalah pencarian dan penggunaan kembali memori (retrieval-augmented context), bukan pelatihan ulang atau perubahan bobot model AI.
+
+Pengaturan Ruto mencatat request dan token yang dipakai melalui Ruto, termasuk riwayat pemakaian meski chat terkait dihapus. Periksa limit model di halaman rate limits Google AI Studio. Batas RPD yang diisi di Ruto hanya menghitung request Ruto dan menghasilkan perkiraan lokal, bukan pengukur kuota akun provider yang otoritatif.
+
+Riwayat chat bisa dicari berdasarkan judul maupun isi pesan dan dihapus satu per satu. Menghapus percakapan menghapus permanen pesan percakapan itu, tetapi tidak menghapus file memori, skills, atau catatan pemakaian request.
+
+Saat pengguna menyertakan tautan repository, folder, atau file GitHub publik, Ruto mengambil README/file teks yang relevan melalui GitHub API dan menyertakan sumbernya sebagai konteks untuk jawaban tersebut. Untuk pertanyaan Nusvanir yang terdeteksi dari topik atau nama di core memory, Ruto memakai repository kanonis `https://github.com/ultoid/nusvanir`, menelusuri struktur repository, dan memprioritaskan dokumen Markdown serta cerita yang relevan selain README atau kode. Konteks tetap dibatasi; Ruto tidak mengklaim sudah membaca seluruh isi repository jika sumber relevan tidak tersedia. Ini bukan browser umum: hanya `github.com` dan `raw.githubusercontent.com` yang didukung, repository harus publik, hingga dua tautan dan 32.000 karakter konteks dapat dibaca per pesan. Sebelum dikirim ke model, Ruto hanya menyertakan hingga 12.000 karakter konteks GitHub yang diambil. File sumber diperlakukan sebagai data tidak tepercaya. Isi GitHub yang diambil ikut dikirim ke provider AI terpilih; percakapan sendiri tetap menyimpan pesan asli, bukan salinan konteks GitHub.
+
+Untuk mengurangi ukuran request ke provider, Ruto membangun indeks pencarian teks penuh lokal (SQLite FTS5) per paragraf untuk core memory dan skill, serta indeks terpisah untuk ringkasan chat memory. Pencarian memakai kata kunci pertanyaan; hanya potongan yang cocok yang dikirim ke model. Indeks file dibangun saat pertama kali diperlukan atau saat file berubah; pada chat berikutnya, isi file yang tidak berubah tidak dibaca ulang. Ringkasan chat memory diindeks saat ditulis, dengan migrasi satu kali untuk ringkasan lama. File memori asli tidak diubah. Sumber GitHub juga diperingkat berdasarkan kata kunci lalu dipangkas menjadi cuplikan relevan. Riwayat lama dibatasi pada konteks yang dikirim ke model, sementara riwayat lengkap tetap tersimpan.
+
+Provider lain yang mendukung format OpenAI Chat Completions dapat dipilih melalui `.env`:
+```env
+RUTO_PROVIDER=openai-compatible
+RUTO_MODEL=nama_model_provider
+RUTO_API_BASE_URL=https://api.example.com/v1
+RUTO_API_KEY=api_key_provider
+```
+Ruto menambahkan `/chat/completions` ke `RUTO_API_BASE_URL`, mewajibkan HTTPS, dan hanya membaca kredensial di backend. Integrasi CopilotKu belum diaktifkan karena endpoint/API dan metode autentikasi resminya belum tersedia; jangan masukkan kredensial CopilotKu sebelum mendapatkan petunjuk integrasi resmi. CopilotKu menyebut kredit uji coba terbatas dan sistem saldo, sehingga jangan menganggap pemakaiannya selalu gratis.
+
+Di halaman Ruto, gunakan **Memori & Skills** untuk mengubah core memory, melihat ringkasan chat memory, menambah/mengubah skill, atau mengimpor `.md`. Jawaban assistant juga bisa disimpan sebagai skill melalui tombol **Simpan sebagai skill**. Ringkasan chat otomatis dicatat sebagai konteks, bukan instruksi, dan tidak mengubah bobot model.
 
 ### 4. Jalankan Aplikasi
 Jalankan server lokal dengan perintah:
